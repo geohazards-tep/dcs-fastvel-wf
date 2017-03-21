@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+<sensor name="ERS">
+  <acquisitionMode name="Image Mode">
+    <azimuthMultilookFactor>10</azimuthMultilookFactor>
+    <rangeMultilookFactor>2</rangeMultilookFactor>
+    <rangeOverSamplingFactor>2</rangeOverSamplingFactor>
+    </acquisitionMode>
+</sensor>
+<sensor name="ENVISAT">
+  <acquisitionMode name="Image Mode">
+    <azimuthMultilookFactor>10</azimuthMultilookFactor>
+    <rangeMultilookFactor>2</rangeMultilookFactor>
+    <rangeOverSamplingFactor>2</rangeOverSamplingFactor>
+    </acquisitionMode>
+</sensor>
+<sensor name="S1">
+  <acquisitionMode name="IW">
+    <azimuthMultilookFactor>2</azimuthMultilookFactor>
+    <rangeMultilookFactor>8</rangeMultilookFactor>
+    <rangeOverSamplingFactor>1</rangeOverSamplingFactor>
+    </acquisitionMode>
+  <acquisitionMode name="EW">
+    <azimuthMultilookFactor>4</azimuthMultilookFactor>
+    <rangeMultilookFactor>8</rangeMultilookFactor>
+    <rangeOverSamplingFactor>1</rangeOverSamplingFactor>
+  </acquisitionMode>
+  <acquisitionMode name="SM">
+    <azimuthMultilookFactor>8</azimuthMultilookFactor>
+    <rangeMultilookFactor>4</rangeMultilookFactor>
+    <rangeOverSamplingFactor>1</rangeOverSamplingFactor>
+  </acquisitionMode>
+  
+</sensor>
+<geomAzUnderSampling>2</geomAzUnderSampling>
+<geomRnUnderSampling>2</geomRnUnderSampling>
+<minIma>20</minIma>
+</properties>
+
