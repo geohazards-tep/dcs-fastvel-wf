@@ -1310,3 +1310,89 @@ function product_tag_get_orbnum()
      
     return ${SUCCESS}
 }
+
+
+
+#function computing the area of slc scene within aoi
+#aoi specified as minlon,minlat,maxlon,maxlat
+function geosar_get_aoi_coords()
+{
+    if [ $# -lt 2 ]; then
+	return 1
+    fi
+
+
+    local geosar="$1"
+    local aoi="$2"
+
+    local tmpdir_="/tmp"
+    
+    if [ $# -ge 3 ]; then
+	tmpdir_=$3
+    fi
+
+    
+    #aoi is of the form
+    #minlon,minlat,maxlon,maxlat
+    aoi=(`echo "$aoi" | sed 's@,@ @g'`)
+    
+    if [ ${#aoi[@]} -lt 4 ]; then
+	return 1
+    fi
+
+    tmpgeosar=${tmpdir_}/tmp.geosar
+    
+    cp "${geosar}" "${tmpgeosar}" || {
+return 1
+    }
+    
+    #increase the aoi extent
+    local extentfactor=0.2
+    local diffx=`echo "(${aoi[2]} - ${aoi[0]})*${extentfactor}" | bc -l`
+    local minlon=`echo "${aoi[0]} - ${diffx}" | bc -l`
+    local maxlon=`echo "${aoi[2]} + ${diffx}" | bc -l`
+    local diffy=`echo "(${aoi[3]} - ${aoi[1]})*${extentfactor}" | bc -l`
+    local minlat=`echo "${aoi[1]} - ${diffy}" | bc -l`
+    local maxlat=`echo "${aoi[3]} + ${diffy}" | bc -l`
+
+    sed -i -e 's@\(CENTER LATITUDE\)\([[:space:]]*\)\(.*\)@\1\2---@g;s@\(CENTER LONGITUDE\)\([[:space:]]*\)\(.*\)@\1\2---@g;s@\(LL LATITUDE\)\([[:space:]]*\)\(.*\)@\1\2---@g' "${tmpgeosar}"
+    sed -i -e 's@\(LR LATITUDE\)\([[:space:]]*\)\(.*\)@\1\2---@g;s@\(UL LATITUDE\)\([[:space:]]*\)\(.*\)@\1\2---@g;s@\(UR LATITUDE\)\([[:space:]]*\)\(.*\)@\1\2---@g' "${tmpgeosar}"
+    sed -i -e 's@\(LR LONGITUDE\)\([[:space:]]*\)\(.*\)@\1\2---@g;s@\(UL LONGITUDE\)\([[:space:]]*\)\(.*\)@\1\2---@g;s@\(UR LONGITUDE\)\([[:space:]]*\)\(.*\)@\1\2---@g' "${tmpgeosar}"
+    sed -i -e 's@\(LL LONGITUDE\)\([[:space:]]*\)\(.*\)@\1\2---@g' "${tmpgeosar}"
+
+    #set the lat/long from the aoi
+    local cmdll="sed -i -e 's@\(LL LATITUDE\)\([[:space:]]*\)\([^\n]*\)@\1\2"${minlat}"@g' \"${tmpgeosar}\""
+    local cmdul="sed -i -e 's@\(UL LATITUDE\)\([[:space:]]*\)\([^\n]*\)@\1\2"${maxlat}"@g' \"${tmpgeosar}\""
+    
+    local cmdlll="sed -i -e 's@\(LL LONGITUDE\)\([[:space:]]*\)\([^\n]*\)@\1\2"${minlon}"@g' \"${tmpgeosar}\""
+    local cmdull="sed -i -e 's@\(UL LONGITUDE\)\([[:space:]]*\)\([^\n]*\)@\1\2"${maxlon}"@g' \"${tmpgeosar}\""
+    
+    
+    
+    eval "${cmdll}"
+    eval "${cmdul}"
+    eval "${cmdull}"
+    eval "${cmdlll}"
+    
+    if [ -z "${EXE_DIR}" ]; then
+	EXE_DIR=/opt/diapason/exe.dir/
+    fi
+    
+    roi=$(sarovlp.pl --geosarm="$geosar" --geosars="${tmpgeosar}" --exedir="${EXE_DIR}")
+    
+    status=$?
+
+    #no overlapping between image and aoi
+    if [ $status -eq 255 ]; then
+	return 255
+    fi
+    
+    if [ -z "$roi" ]; then
+	return 1
+    fi
+
+    echo $roi
+
+    return 0
+    
+}
