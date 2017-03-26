@@ -77,6 +77,9 @@ function main()
 	procCleanup
 	return ${ERRGENERIC}
     }
+
+    #get aoi string definition
+    import_aoi_def_from_node_import "${serverdir}" "${mastertag}" "${wkid}"
     
     ciop-log  "INFO"  "Data ready for interf generation"
     generate_interferograms "${serverdir}" "${mastertag}" || {

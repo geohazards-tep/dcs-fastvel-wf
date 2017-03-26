@@ -242,6 +242,36 @@ function generate_interferograms()
 	
     echo "INFO read ${azunder} ${rnunder}"
 
+    #SM geosar
+    local smgeo=${procdir}/DAT/GEOSAR/${smorb}.geosar_ext
+    
+    #set lat/long corner
+    setlatlongeosar.pl --geosar=${smgeo} --tmpdir=${procdir}/TEMP > /dev/null 2<&1
+
+    ##################################################
+    cp ${smgeo} ${procdir}/DIF_INT/
+    ##################################################
+    
+    #aoi
+    local aoifile="${procdir}/DAT/aoi.txt"
+    local aoidef=`grep "[0-9]" ${aoifile} | head -1`
+    local roi=""
+    local roiopt=""
+    
+    if [ -e "${aoifile}" ] && [ -n "$aoidef" ] ; then
+	roi=$(geosar_get_aoi_coords "${smgeo}" "${aoidef}" "${procdir}/TEMP" )
+	local roist=$?
+	ciop-log "INFO" "geosar_get_aoi_coords status ${roist}"
+    else
+	ciop-log "INFO" "Missing file ${aoifile}"
+	ciop-log "INFO" "aoi defn ${aoidef}"
+    fi
+
+    ciop-log "INFO" "aoi roi defn : ${roi}"
+    [ -n "${roi}" ] && {
+	#roiopt="--roi=${roi}"
+    }
+
     #iterate over list interf
     while read data;do
 	declare -a interflist
@@ -253,13 +283,12 @@ function generate_interferograms()
 	}
 	
 	#TO-DO read ML and under from properties
-	local smgeo=${procdir}/DAT/GEOSAR/${smorb}.geosar_ext
 	local mastergeo=${procdir}/DAT/GEOSAR/${interflist[0]}.geosar_ext
 	local slavegeo=${procdir}/DAT/GEOSAR/${interflist[1]}.geosar_ext
 	local masterci2=${procdir}/GEO_CI2_EXT_LIN/geo_${interflist[0]}_${smorb}.ci2
 	local slaveci2=${procdir}/GEO_CI2_EXT_LIN/geo_${interflist[1]}_${smorb}.ci2
 	
-	interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=${mlaz} --mlran=${mlran} --aziunder=${azunder} --ranunder=${rnunder} --demdesc=${procdir}/DAT/dem.dat --coh --bort --inc --ran --dir=${procdir}/DIF_INT --outdir=${procdir}/DIF_INT/ --tmpdir=${procdir}/TEMP   > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}.log 2<&1
+	interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=${mlaz} --mlran=${mlran} --aziunder=${azunder} --ranunder=${rnunder} --demdesc=${procdir}/DAT/dem.dat --coh --bort --inc --ran --dir=${procdir}/DIF_INT --outdir=${procdir}/DIF_INT/ --tmpdir=${procdir}/TEMP "${roiopt}"  > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}.log 2<&1
 	local status=$?
 	[ $status -ne 0 ] && {
 	    ciop-log "ERROR" "Generation of interferogram ${interflist[0]} - ${interflist[1]} Failed"
@@ -277,3 +306,37 @@ function generate_interferograms()
     return ${SUCCESS}
 }
 
+function import_aoi_def_from_node_import()
+{
+     if [ $# -lt 3 ]; then
+	 ciop-log "ERROR" "Usage:$FUNCTION localdir smtag run_id"
+	 return ${ERRMISSING}
+     fi
+
+     local procdir="$1"
+     local smtag="$2"
+     local wkid="$3"
+
+     local remotesmdir=`ciop-browseresults -j node_import -r "${wkid}" | grep ${smtag}`
+     
+     if [ -z "${remotesmdir}" ]; then
+	 ciop-log "ERROR" "Failed to locate folder for image tag ${smtag}"
+	 return ${ERRMISSING}
+     fi
+
+     local remoteaoifile=`hadoop dfs -lsr ${remotesmdir} | awk '{print $8}' | grep -i aoi.txt`
+     
+     if [ -z "${remoteaoifile}" ]; then
+	 ciop-log "ERROR" "No aoi definition file in remote folder ${remotesmdir}"
+	 return ${ERRMISSING}
+     fi
+
+     local localaoifile=${procdir}/DAT/aoi.txt
+     hadoop dfs -cat "${remoteaoifile}" > "${localaoifile}" || {
+	 ciop-log "ERROR" "Failed to import file ${remoteaoifile}"
+	 return ${ERRMISSING}
+     }
+     
+     
+     return ${SUCCESS}
+}
