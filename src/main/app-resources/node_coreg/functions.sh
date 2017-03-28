@@ -246,7 +246,7 @@ function run_coreg_process_tops()
     #number of iterations for the ESD process
     export NESDITER=2
     
-    export #CLEAN_TEMPORARY="YES"
+    export CLEAN_TEMPORARY="YES"
     export MATIC_DIR="${dirslave}"
     
     if [ $pubmaster -gt 0 ]; then
@@ -323,3 +323,25 @@ function run_coreg_process_tops()
     return ${SUCCESS}
 }
 
+function cleanup_import_data()
+{
+    if [ $# -lt 2 ]; then
+	return ${ERRMISSING}
+    fi 
+
+    local imtag="$1"
+    local wkid="$2"
+    
+    local remotedir=`ciop-browseresults -r "${wkid}" -j node_import | grep ${imtag}`
+    [ -z "${remotedir}" ] && {
+	ciop-log "ERROR" "image directory ${imagetag} not found in remote"
+	return ${ERRMISSING}
+    }
+
+    for data in `hadoop dfs -lsr "${remotedir}" | awk '{print $8}' | grep "\.SAFE$\|\.ci2$"`;do
+	hadoop dfs -rmr "${data}" > /dev/null 2<&1
+    done
+
+
+    return ${SUCCESS}
+}

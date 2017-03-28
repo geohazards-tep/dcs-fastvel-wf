@@ -98,6 +98,9 @@ run_coreg_process_tops "${serverdir}" "${cordir}" "${inputs[0]}" "${inputs[1]}" 
 #cleanup local processing folder
 rm -rf "${cordir}"
 
+#cleanup data from import node
+cleanup_import_data ${inputs[1]} "${_WF_ID}"
+
 done
 
 
