@@ -268,9 +268,9 @@ function generate_interferograms()
     fi
 
     ciop-log "INFO" "aoi roi defn : ${roi}"
-    [ -n "${roi}" ] && {
+    #[ -n "${roi}" ] && {
 	#roiopt="--roi=${roi}"
-    }
+    #}
 
     #iterate over list interf
     while read data;do
@@ -301,8 +301,16 @@ function generate_interferograms()
     done < <(cat ${listinterf} | awk '{print $1" "$2}')
 
     #run carto_sar
-
+    #set some fields in the geosar
+    sed -i -e 's@\(AZIMUTH DOPPLER VALUE\)\([[:space:]]*\)\([^\n]*\)@\1\20.0@g' "${smgeo}"
+    sed -i -e 's@\(DEM TYPE\)\([[:space:]]*\)\([^\n]*\)@\1\2TRUE@g' "${smgeo}"
     
+
+    ciop-log "INFO" "Running carto_sar"
+    cartosar.pl --geosar=${smgeo} --tag="precise_${smorb}" --dir=${procdir}/GEOCODE/ --demdesc=${procdir}/DAT/dem.dat  > ${procdir}/log/cartosar.log 2<&1
+    local cartost=$?
+    ciop-log "INFO" "carto_sar status : $?"
+
     return ${SUCCESS}
 }
 
