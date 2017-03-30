@@ -23,7 +23,7 @@ function procdirectory()
 	return ${ERRPERM}
     }
 
-    mkdir -p ${directory}/{DAT/GEOSAR,RAW_C5B,SLC_CI2,ORB,TEMP,log,QC,GRID,DIF_INT,CD,GEO_CI2,GEO_CI2_EXT_LIN,VOR} || {
+    mkdir -p ${directory}/{DAT/GEOSAR,RAW_C5B,SLC_CI2,ORB,TEMP,log,QC,GRID,DIF_INT,CD,GEO_CI2,GEO_CI2_EXT_LIN,VOR,GRID_LIN} || {
 	return ${ERRPERM}
     }
     
