@@ -248,3 +248,84 @@ function xvfblaunch()
     
     return ${ERRGENERIC}    
 }
+
+
+function compute_precise_sm()
+{
+    if [ $# -lt 3 ]; then
+	ciop-log "ERROR" "usage:$FUNCTION procdir smtag runid"
+	return ${ERRMISSING}
+    fi
+    
+    local procdir="$1"
+    local smtag="$2"
+    local wkid="$3"
+    
+    local immode=""
+    local orbsm=""
+
+    product_tag_get_mode "${smtag}" immode || {
+	return ${ERRINVALID}
+    }
+
+    product_tag_get_orbnum "${smtag}" orbsm || {
+	return ${ERRINVALID}
+    }
+
+    if [ "${immode}" == "IW" ] ||  [  "${immode}" == "EW" ]; then
+	return ${SUCCESS}
+    fi
+    
+    #import DEM
+    local demtif=$(ls ${procdir}/DEM/*.tif | head -1)
+    
+    if [ -z "${demtif}" ]; then
+	ciop-log "ERROR" "No DEM found in ${procdir}/DEM/"
+	return ${ERRMISSING}
+    fi
+    
+    #create DEM descriptor
+    tifdemimport.pl --intif="${demtif}" --outdir="${procdir}/DAT/" > "${procdir}/DEM/demimport.log" 2<&1
+    importst=$?
+    
+    if [ $importst -ne 0 ] || [ ! -e "${procdir}/DAT/dem.dat" ]; then
+	ciop-log "ERROR" "DEM conversion failed"
+	#procCleanup
+	return ${ERRGENERIC}
+    fi
+
+
+    local remotedir=`ciop-browseresults -r "${wkid}" -j node_import | grep ${smtag}`
+    [ -z "${remotedir}" ] && {
+	ciop-log "ERROR" "image directory ${smtag} not found in remote"
+	return ${ERRMISSING}
+    }
+    #import multilook 
+    for file in `hadoop dfs -lsr "${remotedir}" | awk '{print $8}' | grep "SLC_CI2" | grep ml | grep "\.rad\|\.byt" `; do
+	
+	hadoop dfs -copyToLocal "${file}" "${procdir}/SLC_CI2" || {
+	    ciop-log "ERROR" "Failed to import ${file}"
+	    return ${ERRGENERIC}
+	}
+    done
+    
+    geosarfixpath.pl --geosar=${procdir}/DAT/GEOSAR/${orbsm}.geosar --serverdir=${procdir}
+
+    ciop-log "INFO" "Running precise SM "
+    precise_sm.pl --sm=${procdir}/DAT/GEOSAR/${orbsm}.geosar --demdesc=${procdir}/DAT/dem.dat --recor --serverdir=${procdir} --tmpdir=${procdir}/TEMP/ > ${procdir}/log/precise_sm.log 2<&1
+    local precstatus=$?
+    
+    if [ $precstatus -eq 0 ]; then
+	#update geosar file in node import
+	local remotegeosar="${remotedir}/DAT/GEOSAR/${orbsm}.geosar"
+	local updatedgeosar="${procdir}/DAT/GEOSAR/${orbsm}.geosar"
+	hadoop dfs -rm ${remotegeosar}
+	hadoop dfs -put ${updatedgeosar} ${remotedir}/DAT/GEOSAR/
+    else
+	local msg=`cat ${procdir}/log/precise_sm.log`
+	ciop-log "DEBUG" "${msg}"
+    fi
+
+    ciop-log "INFO" "Precise sm status ${precstatus}"
+    return ${SUCCESS}
+}

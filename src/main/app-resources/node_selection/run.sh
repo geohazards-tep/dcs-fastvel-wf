@@ -176,6 +176,9 @@ function main()
 	return ${ERRGENERIC}
     }
 
+    #perform precise_sm
+    compute_precise_sm "${serverdir}" "${smtag}" "${wkid}"
+
     #data passed to the next node
     local stageout="${serverdir}/DAT/stageout.txt"
     echo "" > "${stageout}"
