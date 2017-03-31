@@ -14,6 +14,9 @@ source $_CIOP_APPLICATION_PATH/node_coreg/functions.sh  || {
     exit 255
 }
 
+#properties
+export PROPERTIES_FILE=$_CIOP_APPLICATION_PATH/properties/properties.xml
+
 
 export LANGUE=en
 export PERL5LIB=/opt/diapason/pldiap/lib
@@ -85,15 +88,9 @@ if [ -z "${cordir}" ]; then
 fi
 
 
-ciop-log "INFO" "Importing Slave image ${inputs[1]}"
-
-slavedir=$(import_safe "${cordir}" "${_WF_ID}" ${inputs[1]})
-
 ciop-log "INFO" "Registering image ${inputs[1]} vs master ${inputs[0]}"
 
-run_coreg_process_tops "${serverdir}" "${cordir}" "${inputs[0]}" "${inputs[1]}" || {
-    ciop-log "ERROR" "Coregistration of image ${inputs[1]} failed"
-}
+run_coreg_process "${serverdir}" "${cordir}" "${inputs[0]}" "${inputs[1]}" "${_WF_ID}"
 
 #cleanup local processing folder
 rm -rf "${cordir}"

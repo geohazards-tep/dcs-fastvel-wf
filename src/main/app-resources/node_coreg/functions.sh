@@ -14,23 +14,79 @@ function import_safe()
     local remotedir=`ciop-browseresults -r "${runid}" -j node_import | grep ${imagetag}`
     [ -z "${remotedir}" ] && {
 	ciop-log "ERROR" "image directory ${imagetag} not found in remote"
-	return 1
+	return ${ERRMISSING}
     }
     
     local remotesafe=`hadoop dfs -lsr "${remotedir}" | awk '{print $8}' | grep "\.SAFE$"`
     [ -z "${remotesafe}" ] && {
 	ciop-log "ERROR" "safe directory not found for image ${imagetag}"
-	return 1
+	return ${ERRMISSING}
     }
-    echo ${remotesafe}
+  
     #import to directory
     hadoop dfs -copyToLocal "${remotesafe}" "${procdir}/CD" || {
 	ciop-log "ERROR" "Failed to import ${remotesafe}"
-	return 1
+	return ${ERRGENERIC}
     }
 
     echo "${procdir}/CD/`basename ${remotesafe}`"
     
+    return ${SUCCESS}
+}
+
+function import_extracted_image()
+{
+    if [ $# -lt 3 ]; then
+	return ${ERRMISSING}
+    fi
+    
+    local procdir="${1}"
+    local runid="${2}"
+    local imagetag="$3"
+
+    local remotedir=`ciop-browseresults -r "${runid}" -j node_import | grep ${imagetag}`
+    [ -z "${remotedir}" ] && {
+	ciop-log "ERROR" "image directory ${imagetag} not found in remote"
+	return ${ERRGENERIC}
+    }
+
+    local orbitnum=""
+    
+    product_tag_get_orbnum "${imagetag}" orbitnum || {
+	return ${ERRINVALID}
+    }
+    
+    [ -z "${orbitnum}" ] && {
+	ciop-log "ERROR" "cannot infer orbit number from image tag ${imagetag}"
+	return ${ERRINVALID}
+    }
+    
+    #import geosar file
+    for f in `hadoop dfs -lsr "${remotedir}" | awk '{print $8}' | grep GEOSAR | grep "\.geosar"`; do
+	hadoop dfs -copyToLocal "${f}" "${procdir}/DAT/GEOSAR/" || {
+	    ciop-log "ERROR" "Failed to import file  ${f} for ${imagetag}"
+	    return ${ERRGENERIC}
+	}
+    done
+
+    #import orbit file
+    for f in `hadoop dfs -lsr "${remotedir}" | awk '{print $8}' | grep ORB | grep "\.orb"`; do
+	hadoop dfs -copyToLocal "${f}" "${procdir}/ORB/" || {
+	    ciop-log "ERROR" "Failed to import file ${f} for ${imagetag}"
+	    return ${ERRGENERIC}
+	}
+    done
+    
+    #import slc ,ml and doppler file
+    for f in `hadoop dfs -lsr "${remotedir}/" | awk '{print $8}' |  grep SLC_CI2 |  grep "\.ci2\|\.rad\|doppler\|.byt"`; do
+	hadoop dfs -copyToLocal "${f}" "${procdir}/SLC_CI2/" || {
+	    ciop-log "ERROR" "Failed to import file ${f} for ${imagetag}"
+	    return ${ERRGENERIC}
+	}
+    done
+
+    geosarfixpath.pl --geosar="${procdir}/DAT/GEOSAR/${orbitnum}.geosar" --serverdir="${procdir}"
+
     return ${SUCCESS}
 }
 
@@ -123,10 +179,33 @@ function import_master()
     } 
     
     #TO-DO check for TOPS or SM
+    local immodetag=""
     
-    local masterdir=$(import_safe "${procdir}" "${runid}" "${mastertag}")
+    product_tag_get_mode "${mastertag}" immodetag || {
+	return ${ERRINVALID}
+    }
     
-    local status=$?
+    [ -z "${immodetag}" ] && {
+	ciop-log "unable to infer acquisition mode from image tag ${immodetag}"
+	return ${ERRINVALID}
+    }
+    
+    local status
+    if [ "${immodetag}" == "IW" ] ||  [ "${immodetag}" == "EW" ]; then
+	local masterdir=$(import_safe "${procdir}" "${runid}" "${mastertag}")
+	status=$?
+    else
+	ciop-log "INFO" "Importing master image ${mastertag}"
+	local coregdir=$(procdirectory "${procdir}")
+	#rename processing directory
+	mv "${coregdir}" "${procdir}/PROCESSING" 
+	coregdir="${procdir}/PROCESSING"
+	import_extracted_image "${coregdir}" "${runid}" "${mastertag}"
+	#copy dem descriptor
+	cp ${procdir}/DEM/dem.dat ${coregdir}/DAT/ > /dev/null 2<&1
+	status=$?
+    fi  
+    
     
     if [ $status -ne ${SUCCESS} ]; then
 	ciop-log "ERROR" "Failed to import master image (tag ${mastertag})"
@@ -135,6 +214,8 @@ function import_master()
 
     return ${SUCCESS}
 }
+
+
 
 function run_coreg_process_tops()
 {
@@ -184,7 +265,7 @@ function run_coreg_process_tops()
 	return ${ERRMISSING}
 }
 
-    local aoi="`ls ${dirmaster}/AOI/*.shp |head -1`"
+    local aoi="`ls ${dirmaster}/AOI/*.shp | head -1`"
     
     [ -z "${aoi}" ] && {
 	ciop-log "ERROR" "Missing AOI shapefile "
@@ -342,6 +423,198 @@ function cleanup_import_data()
 	hadoop dfs -rmr "${data}" > /dev/null 2<&1
     done
 
+
+    return ${SUCCESS}
+}
+
+
+
+function run_coreg_stripmap()
+{
+    if [ $# -lt 3  ]; then
+	echo "Usage:$FUNCTION procdir orbitsm orbitslave"
+	return ${ERRMISSING}
+    fi
+
+    if [ -z "${PROPERTIES_FILE}" ] || [ ! -e "${PROPERTIES_FILE}" ]; then
+        ciop-log "ERROR" "Undefined PROPERTIES_FILE"
+        return ${ERRMISSING}
+    fi
+    
+
+    local procdir=$1
+    
+    local tagsm="$2"
+    local tagslave="$3"
+
+    local orbsm=""
+    local orbslave=""
+
+    product_tag_get_orbnum "${tagsm}" orbsm || {
+	return ${ERRINVALID}
+    }
+    
+    product_tag_get_orbnum "${tagslave}" orbslave || {
+	return ${ERRINVALID}
+    }
+    
+    
+    local mlaz
+    local mlran
+    local interpx
+    #
+    read_multilook_factors ${tagsm} "${PROPERTIES_FILE}" mlaz mlran interpx || {
+	ciop-log "ERROR" "Failed to determine multilook parameters from properties file ${PROPERTIES_FILE}"
+	return ${ERRGENERIC}
+    }
+    
+    if [ -z "${mlaz}" ] || [ -z "${mlran}" ] || [ -z "${interpx}" ]; then
+	ciop-log "ERROR" "Failed to determine multilook parameters from properties file ${PROPERTIES_FILE}"
+	return ${ERRGENERIC}	
+    fi
+    
+     
+    #check for dem descriptor
+    local demdesc=${procdir}/DAT/dem.dat
+    
+    if [ ! -e "${demdesc}" ]; then
+	echo "Missing demdescriptor file ${demdesc}"
+	return ${ERRMISSING}
+    fi 
+
+    local orbitlist=`mktemp ${procdir}/DAT/orblist.txt.XXXXXX`
+    
+    if [ -z "${orbitlist}" ]; then
+	ciop-log "ERROR" "canno create temporary orbit list in ${procdir}/DAT"
+	return ${ERRGENERIC}
+    fi
+
+    echo "${orbsm}" > ${orbitlist} || {
+	echo "cannot create orbit list"
+	return ${ERRPERM}
+    }
+    
+    echo "${orbslave}" >> ${orbitlist} || {
+	echo "cannot update orbit list"
+	return ${ERRPERM}
+    }
+    
+    #run registration process
+    local procoutput=${procdir}/log/coreg_${orbslave}.log 
+    coreg_all.pl --list=${orbitlist} --serverdir=${procdir} --griddir=${procdir}/GRID --gridlindir=${procdir}/GRID_LIN --grids --demdesc=${demdesc} --sm=${orbsm} --tmpdir=${procdir}/TEMP --nocachedem --nocache --linear --interpx=${interpx} --mlaz=${mlaz} --mlran=${mlran} > ${procoutput} 2<&1
+    local status=$?
+    
+    if [ $status -ne 0 ]; then
+	ciop-log "ERROR" "Failed to register orbit ${orbslave}"
+	cp -r ${procdir}/log /tmp/log_coreg
+	cp ${procdir}/GEO_CI2/*.log /tmp/log_coreg
+	cp ${procdir}/GEO_CI2_EXT_LIN/*.log /tmp/log_coreg
+	chmod -R 777 /tmp/log_coreg
+	return ${ERRGENERIC}
+    fi 
+    
+    
+    #publish results
+    local pubstatus=""
+    if [ "${orbsm}"  == "${orbslave}"  ]; then
+	local pubsmtemp=$(procdirectory "${procdir}/TEMP")  || {
+	    ciop-log "ERROR" "cannot create local folder ${procdir}/TEMP/${tagsm}"
+	    return ${ERRPERM}
+	}
+	
+	cp ${procdir}/DAT/GEOSAR/${orbsm}.geosar ${pubsmtemp}/DAT/GEOSAR/
+	cp ${procdir}/DAT/GEOSAR/${orbsm}.geosar_ext ${pubsmtemp}/DAT/GEOSAR/
+	cp ${procdir}/ORB/${orbsm}.orb ${pubsmtemp}/ORB/
+	cp ${procdir}/GEO_CI2_EXT_LIN/geo_${orbsm}_${orbsm}.* ${pubsmtemp}/GEO_CI2_EXT_LIN/
+	cp ${procdir}/SLC_CI2/doppler_${orbsm} ${pubsmtemp}/SLC_CI2/
+
+	#publish folder
+	ciop-publish -a -r "${pubsmtemp}" 
+	pubstatus=$?
+	rm -rf "${pubsmtemp}"
+	
+	if [ $pubstatus -ne 0  ]; then
+	    ciop-log "ERROR" "Failed to publish super master image"
+	    return ${ERRPERM}
+	fi
+
+    else
+	#create directory to publish with registered slave image
+	local pubtemp=$(procdirectory "${procdir}/TEMP")  || {
+	    ciop-log "ERROR" "cannot create local folder ${procdir}/TEMP/${tagslave}"
+	    return ${ERRPERM}
+	}
+	
+	mv ${pubtemp} "${procdir}/TEMP/${tagslave}"
+	pubtemp="${procdir}/TEMP/${tagslave}"
+	
+	#move results to folder to be published
+	mv ${procdir}/DAT/GEOSAR/${orbslave}.geosar_ext ${pubtemp}/DAT/GEOSAR 
+	mv ${procdir}/DAT/GEOSAR/${orbslave}.geosar ${pubtemp}/DAT/GEOSAR
+	mv ${procdir}/ORB/${orbslave}.orb ${pubtemp}/ORB/
+	mv ${procdir}/GEO_CI2_EXT_LIN/geo_${orbslave}_${orbsm}.* ${pubtemp}/GEO_CI2_EXT_LIN/
+	mv ${procdir}/SLC_CI2/doppler_${orbslave} ${pubtemp}/SLC_CI2/
+	
+	#clean data
+	rm -f ${procdir}/GEO_CI2/geo_${orbslave}_${orbsm}.*
+	
+	#publish folder
+	ciop-publish -a -r "${pubtemp}" 
+	pubstatus=$?
+	rm -rf "${pubtemp}"
+	
+	if [ $pubstatus -ne 0  ]; then
+	    ciop-log "ERROR" "Failed to publish registration results for image ${tagslave}"
+	    return ${ERRPERM}
+	fi
+
+    fi
+
+    return ${SUCCESS}
+}
+
+function run_coreg_process()
+{
+    if [ $# -lt 5 ]; then
+	ciop-log "ERROR" "Usage : $FUNCTION serverdir cordir mastertag slavetag wfid"
+	return ${ERRMISSING}
+    fi
+
+    local serverdir="$1"
+    local cordir="$2"
+    local mastertag="$3"
+    local slavetag="$4"
+    local wfid="$5"
+    
+    local immodetag=""
+    
+    product_tag_get_mode "${mastertag}" immodetag || {
+	return ${ERRINVALID}
+    }
+    
+    [ -z "${immodetag}" ] && {
+	ciop-log "unable to infer acquisition mode from image tag ${immodetag}"
+	return ${ERRINVALID}
+    }
+
+    if [ "${immodetag}" == "IW" ] || [ "${immodetag}" == "EW" ]; then
+	ciop-log "INFO" "Importing Slave image ${slavetag}"
+	local slavedir=$(import_safe "${cordir}" "${wfid}" "${slavetag}")
+	
+	run_coreg_process_tops "${serverdir}" "${cordir}" "${mastertag}" "${slavetag}" || {
+	    ciop-log "ERROR" "Coregistration of image ${slavetag} failed"
+	    return ${ERRGENERIC}
+	}
+    else
+	ciop-log "INFO" "Importing Slave image ${slavetag}"
+	import_extracted_image "${serverdir}/PROCESSING" "${wfid}" "${slavetag}"
+	
+	run_coreg_stripmap "${serverdir}/PROCESSING" "${mastertag}" "${slavetag}" || {
+	    ciop-log "ERROR" "Coregistration of image ${slavetag} failed"
+	    return ${ERRGENERIC}
+	}
+	
+    fi
 
     return ${SUCCESS}
 }
