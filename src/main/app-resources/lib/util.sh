@@ -997,7 +997,7 @@ function ext2dop()
 	if [ $prismestatus -ne 0 ]; then
 	    #print message
 	    cp ${serverdir}/log/*.log /tmp
-	    chmod 775 /tmp/*.log
+	    chmod 777 /tmp/*.log
 	    return ${ERRGENERIC}
 	fi
 	#delete raw data
@@ -1395,4 +1395,48 @@ return 1
 
     return 0
     
+}
+
+
+function export_folder()
+{
+    if [ $# -lt 3 ]; then
+	ciop-log "INFO" "Usage:$FUNCTION remotedir localdir tag"
+	return 1
+    fi
+
+    local remoteroot="$1"
+    local localdir="$2"
+    local tag="$3"
+
+    local remotedir="${remoteroot}/${tag}"
+
+    hadoop dfs -mkdir "${remotedir}"  > /dev/null 2<&1 || {
+	#if mkdir fails 
+	#check whether the folder was created by another folder
+	hadoop dfs -test -d "${remotedir}" > /dev/null 2<&1
+	local tststatus=$?
+	[ $tststatus -ne 0 ] && {
+	    #folder does not exist in hdfs
+	    #and we couldn't create it
+	    return ${ERRGENERIC}
+	}
+	#folder was created by another process
+	#no need for this process to create it
+	return ${SUCCESS}
+    }
+    #this process created the folder
+    for x in `ls ${localdir}/`; do
+        hadoop dfs -put ${localdir}/${x} "${remotedir}"
+	local cpstatus=$?
+	[ ${cpstatus} -ne 0 ] && {
+	    #failed to copy a content of local directory to hdfs
+	    #remove the created folder and return an error
+	    hadoop dfs -rmr "${remotedir}" >/dev/null 2<&1
+	    return ${ERRGENERIC}
+	} 
+    done
+    #echo "published folder ${locadir}"
+    
+    return ${SUCCESS}
 }
