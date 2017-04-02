@@ -204,6 +204,7 @@ function import_master()
 	#copy dem descriptor
 	cp ${procdir}/DEM/dem.dat ${coregdir}/DAT/ > /dev/null 2<&1
 	status=$?
+	run_coreg_stripmap "${procdir}/PROCESSING" "${mastertag}" "${mastertag}"
     fi  
     
     
@@ -522,22 +523,20 @@ function run_coreg_stripmap()
 	    return ${ERRPERM}
 	}
 	
-	cp ${procdir}/DAT/GEOSAR/${orbsm}.geosar ${pubsmtemp}/DAT/GEOSAR/
-	cp ${procdir}/DAT/GEOSAR/${orbsm}.geosar_ext ${pubsmtemp}/DAT/GEOSAR/
-	cp ${procdir}/ORB/${orbsm}.orb ${pubsmtemp}/ORB/
-	cp ${procdir}/GEO_CI2_EXT_LIN/geo_${orbsm}_${orbsm}.* ${pubsmtemp}/GEO_CI2_EXT_LIN/
-	cp ${procdir}/SLC_CI2/doppler_${orbsm} ${pubsmtemp}/SLC_CI2/
+	ln -s  ${procdir}/DAT/GEOSAR/${orbsm}.geosar ${pubsmtemp}/DAT/GEOSAR/
+	ln -s  ${procdir}/DAT/GEOSAR/${orbsm}.geosar_ext ${pubsmtemp}/DAT/GEOSAR/
+	ln -s ${procdir}/ORB/${orbsm}.orb ${pubsmtemp}/ORB/
+	ln -s ${procdir}/GEO_CI2_EXT_LIN/geo_${orbsm}_${orbsm}.* ${pubsmtemp}/GEO_CI2_EXT_LIN/
+	ln -s ${procdir}/SLC_CI2/doppler_${orbsm} ${pubsmtemp}/SLC_CI2/
 
 	#publish folder
-	ciop-publish -a -r "${pubsmtemp}" 
-	pubstatus=$?
+	
+	#get the process's hdfs folder
+	local hdfsroot=`ciop-browseresults -r "${_WF_ID}" | sed 's@/node@ /node@g' | awk '{print $1}' | sort --unique`
+	export_folder "${hdfsroot}/node_coreg/data" ${pubsmtemp} ${tagsm}
+	 
 	rm -rf "${pubsmtemp}"
 	
-	if [ $pubstatus -ne 0  ]; then
-	    ciop-log "ERROR" "Failed to publish super master image"
-	    return ${ERRPERM}
-	fi
-
     else
 	#create directory to publish with registered slave image
 	local pubtemp=$(procdirectory "${procdir}/TEMP")  || {
