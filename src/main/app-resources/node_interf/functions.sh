@@ -272,9 +272,9 @@ function generate_interferograms()
     fi
 
     ciop-log "INFO" "aoi roi defn : ${roi}"
-    #[ -n "${roi}" ] && {
-	#roiopt="--roi=${roi}"
-    #}
+    [ -n "${roi}" ] && {
+	roiopt="--roi=${roi}"
+    }
 
     #iterate over list interf
     while read data;do
@@ -310,7 +310,7 @@ function generate_interferograms()
     local mlrad=`ls ${procdir}/DIF_INT/pha*.rad | head -1`
     local fvelconf=${procdir}/DAT/fastvel.conf
     
-    genfvelconf.pl --geosar=${smgeo} --altambig=${altambigfile} --mlradfile=${mlrad} --mlaz=${mlaz} --mlran=${mlran} --numsar=${numsar} --numint=${numint} 1> ${fvelconf} 2> ${procdir}/log/genfvel.err
+    genfvelconf.pl --geosar=${smgeo} --altambig=${altambigfile} --mlradfile=${mlrad} --mlaz=${mlaz} --mlran=${mlran} --numsar=${numsar} --numint=${numint}  "${roiopt}"   1> ${fvelconf} 2> ${procdir}/log/genfvel.err
     local genfvelst=$?
     
     if [ ${genfvelst} -ne 0 ]; then
