@@ -248,6 +248,10 @@ function generate_interferograms()
     #set lat/long corner
     setlatlongeosar.pl --geosar=${smgeo} --tmpdir=${procdir}/TEMP > /dev/null 2<&1
 
+    #alt_ambig
+    local altambigfile="${procdir}/DAT/AMBIG.DAT"
+    ls ${procdir}/ORB/*.orb | alt_ambig.pl --geosar=${smgeo}  -o "${altambigfile}"   > /dev/null 2<&1
+    
     ##################################################
     cp ${smgeo} ${procdir}/DIF_INT/
     ##################################################
@@ -300,6 +304,21 @@ function generate_interferograms()
 	
     done < <(cat ${listinterf} | awk '{print $1" "$2}')
 
+    #fvel config generation
+    local numsar=`ls ${procdir}/ORB/*.orb | wc -l`
+    local numint=`cat ${listinterf} | wc -l`
+    local mlrad=`ls ${procdir}/DIF_INT/pha*.rad | head -1`
+    local fvelconf=${procdir}/DAT/fastvel.conf
+    
+    genfvelconf.pl --geosar=${smgeo} --altambig=${altambigfile} --mlradfile=${mlrad} --mlaz=${mlaz} --mlran=${mlran} --numsar=${numsar} --numint=${numint} 1> ${fvelconf} 2> ${procdir}/log/genfvel.err
+    local genfvelst=$?
+    
+    if [ ${genfvelst} -ne 0 ]; then
+	ciop-log "ERROR" "genfvelconf failure"
+	local msg=`cat ${procdir}/log/genfvel.err`
+	ciop-log "DEBUG" "${msg}"
+    fi
+    
     #run carto_sar
     #set some fields in the geosar
     sed -i -e 's@\(AZIMUTH DOPPLER VALUE\)\([[:space:]]*\)\([^\n]*\)@\1\20.0@g' "${smgeo}"
