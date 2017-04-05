@@ -88,17 +88,7 @@ function main()
     }
 
     #cleanup data
-
-    ######################
-    # 
-    ######################
-    cp -r ${serverdir}/log ${serverdir}/DIF_INT
-    cp -r ${serverdir}/DAT ${serverdir}/DIF_INT
-    cp -r ${serverdir}/DIF_INT /tmp
-    chmod -R 777 /tmp/DIF_INT
-    ######################
-    # 
-    ######################
+    
 
     return ${SUCCESS}
 }
