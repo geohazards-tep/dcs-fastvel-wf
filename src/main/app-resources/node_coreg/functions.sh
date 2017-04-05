@@ -340,18 +340,7 @@ function run_coreg_process_tops()
     ${SCRIPT_DIR}/s1_process.sh > ${dirslave}/log/processing.log 2<&1
     
     local status=$?
-    
-    ###################################
-    cp ${dirslave}/log/processing_${slimagetag}.log /tmp
-    chmod 777 ${dirslave}/log/processing_${slimagetag}.log
-    cp ${prodlist} /tmp
-    chmod 777 /tmp/`basename ${prodlist}`
-    ls ${safeslave} > /tmp/safelsave_${slimagetag}.txt
-    chmod 777 /tmp/safelsave_${slimagetag}.txt
-    #cp -r ${procdir} /tmp
-    #chmod -R 777 /tmp/coreg*
-###################################
-    
+      
 
     if [ $status -ne 0 ]; then
 	return ${ERRGENERIC}
@@ -507,10 +496,7 @@ function run_coreg_stripmap()
     
     if [ $status -ne 0 ]; then
 	ciop-log "ERROR" "Failed to register orbit ${orbslave}"
-	cp -r ${procdir}/log /tmp/log_coreg
-	cp ${procdir}/GEO_CI2/*.log /tmp/log_coreg
-	cp ${procdir}/GEO_CI2_EXT_LIN/*.log /tmp/log_coreg
-	chmod -R 777 /tmp/log_coreg
+	
 	return ${ERRGENERIC}
     fi 
     
