@@ -21,8 +21,6 @@ export exedir=${EXE_DIR}
 export datdir=${DAT_DIR}
 
 
-#TO-DO remove 
-#rm -rf ${TMPDIR}/DIAPASON*
 
 #read parameters
 #read polarization to process
@@ -64,8 +62,6 @@ function main()
     
     ciop-log "INFO" "Downloaded ${image}"
     
-    ls -l ${serverdir}/CD > /tmp/cdlist.txt
-    chmod 777 /tmp/cdlist.txt
 
     #look for S1 
     for z in `find ${serverdir}/CD/ -iname "*S1*.zip" -print`;do
@@ -154,12 +150,6 @@ function main()
 	return ${ERRGENERIC}
     fi
     
-    ############################################
-    ls -l ${TMPDIR} > "/tmp/tmpdircontents.txt"
-    chmod 777 "/tmp/tmpdircontents.txt"
-    cp -r ${serverdir}/log /tmp
-    chmod -R 777  /tmp/log
-    ############################################
 
     procCleanup 
     
