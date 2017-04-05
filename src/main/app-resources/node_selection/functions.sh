@@ -122,8 +122,6 @@ function run_selection()
 
     #interf_selection
     local isprog="/opt/interf_selection/interf_selection_auto.sav"
-    #echo "$PATH" > /tmp/envpath.txt
-    #env > /tmp/env.log 2<&1
     
     #backup and set the SHELL environment variable to bash
     local SHELLBACK=${SHELL}
@@ -134,8 +132,8 @@ function run_selection()
     cd ${serverdir}/ORB
     
     #run alt ambig
-    find ${serverdir}/ -iname "*.orb" -print | alt_ambig.pl --geosar=`ls ${serverdir}/DAT/GEOSAR/*.geosar | head -1` > /tmp/log/alt_ambig.log 2<&1
-    chmod 777 /tmp/*.log 2>/dev/null
+    find ${serverdir}/ -iname "*.orb" -print | alt_ambig.pl --geosar=`ls ${serverdir}/DAT/GEOSAR/*.geosar | head -1` > ${serverdir}/log/alt_ambig.log 2<&1
+    
     timeout 300s idl -rt=${isprog} > ${serverdir}/log/interf_selection.log 2<&1
     local isstatus=$?
     
@@ -151,12 +149,7 @@ function run_selection()
     rm "${TMPDIR}/xvfblock_${display}" 
 
     ciop-log "DEBUG" "interf selection status : $isstatus"
-    find ${serverdir} -type f -print > /tmp/issfiles.txt
-    chmod -R 777 /tmp/issfiles.txt
-    cp ${serverdir}/log/interf_selection.log /tmp
-    chmod 777 /tmp/interf_selection.log
-    cp ${serverdir}/TEMP/interf_selection.log /tmp/interf_selection2.log
-    chmod 777 /tmp/interf_selection2.log
+   
     local orbitsm=`grep -m 1 "[0-9]" ${serverdir}/TEMP/SM_selection_auto.txt`
     
     [ -z "${orbitsm}" ] && {
