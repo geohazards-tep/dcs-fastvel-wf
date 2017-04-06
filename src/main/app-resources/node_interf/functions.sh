@@ -272,9 +272,9 @@ function generate_interferograms()
     fi
 
     ciop-log "INFO" "aoi roi defn : ${roi}"
-    [ -n "${roi}" ] && {
-	roiopt="--roi=${roi}"
-    }
+    #  [ -n "${roi}" ] && {
+    #	roiopt="--roi=${roi}"
+    #}
 
     #iterate over list interf
     while read data;do
@@ -317,6 +317,7 @@ function generate_interferograms()
 	ciop-log "ERROR" "genfvelconf failure"
 	local msg=`cat ${procdir}/log/genfvel.err`
 	ciop-log "DEBUG" "${msg}"
+	return ${ERRGENERIC}
     fi
     
     #run carto_sar
