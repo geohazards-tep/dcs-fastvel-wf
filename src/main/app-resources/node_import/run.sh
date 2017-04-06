@@ -139,6 +139,16 @@ function main()
     local pubdir="${tmpdir_}/${prodtag}"
     ln -s "${serverdir}" "${pubdir}"
     
+    #check whether the product tag 
+    #is already present in hdfs
+    local alreadypublished=`ciop-browseresults -r ${_WF_ID} -j node_import | grep ${prodtag}`
+    if [ -n "${alreadypublished}" ]; then
+	ciop-log "INFO" "Product with tag ${prodtag} was previously published"
+	rm -rf ${tmpdir_}
+	procCleanup
+	return ${ERRGENERIC}
+    fi
+
     ciop-publish -a  -r "${pubdir}"
     local pubstatus=$?
     
