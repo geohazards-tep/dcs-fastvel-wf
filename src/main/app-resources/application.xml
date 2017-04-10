@@ -33,7 +33,6 @@
       <streamingExecutable>/application/node_coreg/run.sh</streamingExecutable>
       <defaultJobconf>       
 	<property id="mapred.map.max.attempts">1</property>
-	<property id="ciop.job.max.tasks">1</property>
 	<property id="mapred.task.timeout">720000000</property>                      
       </defaultJobconf>
     </jobTemplate>
