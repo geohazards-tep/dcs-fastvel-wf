@@ -1440,3 +1440,51 @@ function export_folder()
     
     return ${SUCCESS}
 }
+
+
+
+#function computing the area of slc scene within aoi
+#aoi specified as minlon,minlat,maxlon,maxlat
+function geosar_get_aoi_coords2()
+{
+    if [ $# -lt 4 ]; then
+	ciop-log "ERROR" "$FUNCTION :  missing argument"
+	return ${ERRMISSING}
+    fi
+
+
+    local geosar="$1"
+    local aoi="$2"
+    local dem="$3"
+
+    local tmpdir_="$4"
+       
+    #aoi is of the form
+    #minlon,minlat,maxlon,maxlat
+    aoi=(`echo "$aoi" | sed 's@,@ @g'`)
+    
+    if [ ${#aoi[@]} -lt 4 ]; then
+	ciop-log "ERROR" "Bad aoi definition ${aoi}"
+	return ${ERRINVALID}
+    fi
+    
+    local coordsfile=${tmpdir_}/aoi2sarcoords.txt
+
+    aoi2coords.pl --geosar="${geosar}" --demdesc="${dem}" --minlon=${aoi[0]} --minlat=${aoi[1]} --maxlon=${aoi[2]} --maxlat=${aoi[3]} --outfile="${coordsfile}" > ${tmpdir_}/aoi2coords.log 2<&1
+    
+    if [ ! -e "${coordsfile}" ]; then
+	ciop-log "INFO" "$FUNCTION aoi2coords fail"
+	return ${ERRGENERIC}
+    fi
+    
+    local coords=`head -1 ${coordsfile}`
+
+    if [ -z "${coords}" ]; then
+	ciop-log "INFO" "$FUNCTION empty aoi2coords result"
+	return ${ERRGENERIC}
+    fi
+    
+    echo $coords
+    
+    return ${SUCCESS}   
+}
