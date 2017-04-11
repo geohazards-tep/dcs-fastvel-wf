@@ -253,7 +253,7 @@ function generate_interferograms()
     ls ${procdir}/ORB/*.orb | alt_ambig.pl --geosar=${smgeo}  -o "${altambigfile}"   > /dev/null 2<&1
     
     ##################################################
-    cp ${smgeo} ${procdir}/DIF_INT/
+    #cp ${smgeo} ${procdir}/DIF_INT/
     ##################################################
     
     #aoi
@@ -263,7 +263,7 @@ function generate_interferograms()
     local roiopt=""
     
     if [ -e "${aoifile}" ] && [ -n "$aoidef" ] ; then
-	roi=$(geosar_get_aoi_coords "${smgeo}" "${aoidef}" "${procdir}/TEMP" )
+	roi=$(geosar_get_aoi_coords2 "${smgeo}" "${aoidef}" "${procdir}/DAT/dem.dat"  "${procdir}/log/" )
 	local roist=$?
 	ciop-log "INFO" "geosar_get_aoi_coords status ${roist}"
     else
@@ -272,10 +272,10 @@ function generate_interferograms()
     fi
 
     ciop-log "INFO" "aoi roi defn : ${roi}"
-    #  [ -n "${roi}" ] && {
-    #	roiopt="--roi=${roi}"
-    #}
-
+    [ -n "${roi}" ] && {
+    	roiopt="--roi=${roi}"
+    }
+    
     #iterate over list interf
     while read data;do
 	declare -a interflist
