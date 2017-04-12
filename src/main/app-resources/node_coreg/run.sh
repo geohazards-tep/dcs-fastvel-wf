@@ -100,6 +100,8 @@ cleanup_import_data ${inputs[1]} "${_WF_ID}"
 
 done
 
+#clean master image from import node
+cleanup_import_data ${inputs[0]} "${_WF_ID}"
 
 
 #remove processing directory
