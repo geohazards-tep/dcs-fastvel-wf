@@ -175,7 +175,7 @@ function run_selection()
 function merge_datasetlist()
 {
     if [ $# -lt 2 ]; then
-	return 1
+	return ${ERRMISSING}
     fi
     
     local serverdir="$1"
@@ -196,15 +196,38 @@ function merge_datasetlist()
     
     [ $cnt -eq 0 ] && {
 	ciop-log "ERROR" "Empty merged dataset file"
-	return 1
+	return ${ERRINVALID}
     }
     
     
     
 
-    return 0
+    return ${SUCCESS}
 }
 
+
+function filter_imported_data()
+{
+    if [ $# -lt 2 ]; then
+	return 1
+    fi
+    
+    local serverdir="$1"
+    local runid="$2"
+    
+    local tagstodiscard="${serverdir}/TEMP/discardedlist.dat"
+    ciop-browseresults -r "${runid}" -j node_import | xargs -L 1 basename | check_taglist.pl --outfile="${tagstodiscard}"
+    
+    if  [ -e "${tagstodiscard}" ]; then
+	for tag in `cat ${tagstodiscard}`; do
+	    for tagdir in `ciop-browseresults -r "${runid}" -j node_import | grep ${tag}` ;do
+		ciop-log "INFO" "Discarding image with tag ${tag}"
+		hadoop dfs -rmr "${tagdir}" > /dev/null 2<&1
+	    done
+	done
+    fi
+
+}
 
 
 function xvfblaunch()

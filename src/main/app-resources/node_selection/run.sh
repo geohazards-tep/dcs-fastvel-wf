@@ -48,6 +48,8 @@ function main()
 	return $ERRPERM
     }
     
+    filter_imported_data "${serverdir}" "${wkid}"
+
     merge_datasetlist "${serverdir}" "${wkid}" || {
 	ciop-log "ERROR" "Importing dataset list failed"
  	procCleanup
