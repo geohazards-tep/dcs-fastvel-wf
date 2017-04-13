@@ -20,6 +20,8 @@ export DAT_DIR=/opt/diapason/dat.dir
 export exedir=${EXE_DIR}
 export datdir=${DAT_DIR}
 
+#set trap
+trap trapFunction INT TERM
 
 
 #read parameters

@@ -205,6 +205,9 @@ function main()
     return ${SUCCESS}
 }
 
+#set trap
+trap trapFunction INT TERM
+
 
 mainexec=1
 
