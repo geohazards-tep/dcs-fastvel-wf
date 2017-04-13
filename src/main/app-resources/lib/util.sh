@@ -43,11 +43,11 @@ function procCleanup()
 
 function node_cleanup()
 {
-    if [  $# -lt 1 ]; then
+    if [  $# -lt 2 ]; then
 	return ${ERRGENERIC}
     fi
     local wkfid="$1"
-    local nodelist="node_swath node_burst node_coreg node_interf"
+    local nodelist="$2"
     for node in $nodelist ; do
 	for d in `ciop-browseresults -r "${wkfid}" -j ${node}`; do
 	    hadoop dfs -rmr $d > /dev/null 2<&1
@@ -1487,4 +1487,10 @@ function geosar_get_aoi_coords2()
     echo $coords
     
     return ${SUCCESS}   
+}
+
+function trapFunction()
+{
+    procCleanup
+    exit
 }
