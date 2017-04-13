@@ -87,14 +87,32 @@ function main()
 	return ${ERRGENERIC}
     }
 
-    #cleanup data
-    
+    #cleanup node_coreg node
+    node_cleanup "${wkid}" "node_coreg"
+
+    #publish data
+
+    #rename processing folder
+    local pubdir=${TMPDIR}/INSAR_PROCESSING
+    mv "${serverdir}" "${pubdir}"
+    serverdir="${pubdir}"
+
+    ciop-publish -a -r "${pubdir}" || {
+	ciop-log "ERROR" "Failed to publish folder ${pubdir}"
+	return ${ERRGENERIC}
+}
 
     return ${SUCCESS}
 }
 
+#set trap
+trap trapFunction INT TERM
+
 #run processing
-main
+main || {
+    procCleanup
+    exit $ERRGENERIC
+}
 
 
 procCleanup

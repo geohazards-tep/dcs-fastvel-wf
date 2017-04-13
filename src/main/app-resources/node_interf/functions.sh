@@ -331,6 +331,9 @@ function generate_interferograms()
     local cartost=$?
     ciop-log "INFO" "carto_sar status : $?"
 
+    #remove the coregistered images
+    rm -f ${serverdir}/GEO_CI2_EXT_LIN/geo* > /dev/null 2<&1
+
     return ${SUCCESS}
 }
 
