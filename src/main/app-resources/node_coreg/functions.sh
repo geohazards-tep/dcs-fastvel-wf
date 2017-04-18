@@ -103,7 +103,7 @@ function import_data_from_previous_nodes()
     #import DEM
     remotedemdir=`ciop-browseresults -r ${runid}  -j node_selection | grep DEM`
     [ -z "${remotedemdir}" ] && {
-	ciop-log "ERROR" "node DEM folder found in node_selection results"
+	ciop-log "ERROR" "no DEM folder found in node_selection results"
 	#procCleanup
 	return ${ERRGENERIC}
     } 
