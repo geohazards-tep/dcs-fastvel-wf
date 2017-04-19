@@ -11,6 +11,23 @@ ERRSTARTDATE=5
 ERRSTOPDATE=6
 ERRMISSING=255
 
+
+# Public: Create a processing folder structure
+#
+# Takes a folder path as argument where it creates 
+# the folder usual folder structure used in DIAPASON  
+# 
+# The function will echo the path of the created folder
+#
+# $1 - location where to create the processing folder
+#
+# Examples
+#
+#   serverdir=$(procdirectory "/tmp")
+#
+# Returns $SUCCESS if the folder was created or an error code otherwise
+#   
+
 function procdirectory()
 {
     if [ $# -lt 1 ]; then
@@ -23,7 +40,7 @@ function procdirectory()
 	return ${ERRPERM}
     }
 
-    mkdir -p ${directory}/{DAT/GEOSAR,RAW_C5B,SLC_CI2,ORB,TEMP,log,QC,GRID,DIF_INT,CD,GEO_CI2,GEO_CI2_EXT_LIN,VOR,GRID_LIN} || {
+    mkdir -p ${directory}/{DAT/GEOSAR,RAW_C5B,SLC_CI2,ORB,TEMP,log,QC,GRID,DIF_INT,CD,GEO_CI2,GEO_CI2_EXT_LIN,VOR,GRID_LIN,GEOCODE} || {
 	return ${ERRPERM}
     }
     
@@ -31,6 +48,21 @@ function procdirectory()
     
     return ${SUCCESS}
 }
+
+
+# Public: Clean temporary processing folder
+#
+# Checks for the for a folder defined as value 
+# of the serverdir variable and deletes the folder
+# when it exists
+#
+# Function takes no argument
+#
+# Examples
+#
+#   procCleanup 
+#
+# Returns the exit code of the last command executed 
 
 function procCleanup()
 {
@@ -40,6 +72,20 @@ function procCleanup()
     fi
 
 }
+
+# Public: Clean node intermediate results
+#
+# Takes as argument the workflow id and node name
+# and deletes the contents that were published to that node
+#
+#  $1 - workflow id 
+#  $2 - node name
+#
+# Examples
+#
+#   node_cleanup ${WF_ID} node_name
+#
+# Returns the exit code of the last command executed 
 
 function node_cleanup()
 {
@@ -55,6 +101,20 @@ function node_cleanup()
     done
 }
 
+# Public: parse a sentinel-1 product name string
+#
+# Takes a string argument and splits it using "_" as separator
+# The input string should be the name of a Sentinel-1 .SAFE folder
+# The function will echo an array with the split string
+#
+# $1 - string
+#
+# Examples
+#
+# masterinfo=($(product_name_parse "${master}"))
+#
+# Returns the exit code of the last command executed.
+
 function product_name_parse()
 {
     if [ $# -lt 1 ]; then
@@ -66,10 +126,25 @@ function product_name_parse()
     echo "${info[@]}"
 
 if [ ${#info[@]} -lt 3 ]; then
-    #ciop-log "ERROR" "Bad Filename : ${product}"
+    ciop-log "ERROR" "Bad Filename : ${product}"
     return ${ERRGENERIC}
     fi
 }
+
+# Public: Check if a sentinel-1 product is supported
+# by the processor.
+#
+# The input string should be the name of a Sentinel-1 .SAFE folder
+# The function will detect the acquisition mode and processing level
+# (Raw or SLC) and return the status accordingly
+#
+# $1 - string
+#
+# Examples
+#
+# product_check "${master}"
+#
+# Returns $SUCCESS if the product is SLC and TOPS (IW or EW) 
 
 function product_check()
 {
@@ -102,8 +177,7 @@ function product_check()
 esac
     
     if [ $modeok -le 0 ]; then
-    #ciop-log "ERROR" "invalid or unsupported mode ${mode}"
-	echo "invalid or unsupported mode ${mode}" 1>&2
+	ciop-log "ERROR" "invalid or unsupported mode ${mode}"
 	return ${ERRINVALID}
     fi
 
@@ -111,8 +185,7 @@ esac
 level=${arr[2]}
 
 if [ "$level" != "SLC" ]; then
-    #ciop-log "ERROR" "invalid or unsupported processing level $level"
-    echo "invalid or unsupported processing level $level" 1>&2
+    ciop-log "ERROR" "invalid or unsupported processing level $level"
     return ${ERRINVALID}
 fi
 
@@ -120,6 +193,19 @@ return ${SUCCESS}
 }
 
 
+# Public: Download an image from the catalog
+#
+# Takes as argument the image reference in the catalog and 
+# the folder where the image should be downloaded
+#
+# $1 - Image url
+# $2 - download folder
+#
+# Examples
+#
+#   master=$( get_data ${masterref} ${datadir}/download/master )
+#
+# Returns 0 on success and non-zero on error
 
 get_data() {                                                                                                                                                     
   local ref=$1                                                                                                                                                   
@@ -142,6 +228,29 @@ get_data() {
   echo ${local_file}                                                                                                                                             
 }               
 
+# Public: Determine matching burst numbers
+# for 2 s1 images
+#
+# Takes as argument 2 geosar files 3 variable names
+# for starting burst , ending burst and burst list
+# and an optional shapefile as parameters 
+# 
+# 
+#
+# $1 - geosar file of the master image
+# $2 - geosar file of the slave image
+# $3 - variable name for storing output starting burst number
+# $4 - variable name for storing output ending burst number
+# $5 - variable name for storing output burst list
+# $6 - optional shapefile 
+#
+# Example
+#
+#   matching_bursts  "${orbitmaster}.geosar" "${orbitslave}.geosar" BURSTSTART BURSTEND SLAVEBURSTLIST "${aoidef}"
+#
+# The function will return 0 on success and non-zero
+# otherwise
+#   
 
 function matching_bursts
 {
@@ -264,8 +373,26 @@ function get_POEORB() {
 }
 
 
-
-# dem download 
+# Public: dem download from geosar file information
+#
+# Takes a folder path as argument , looks 
+# for geosar files inside the folder and 
+# determines the minimum latitude and longitude
+# of the area ,downloads the dem and creates
+# the descriptor and raster
+# 
+#
+# $1 - input processing folder
+#
+# Examples
+#
+#   get_DEM ${serverdir}
+#
+# Returns $SUCCESS if the dem was downloaded 
+# and properly imported.
+# 
+#   
+# 
 function get_DEM()
 {
     if [ $# -lt 1 ]; then
@@ -326,9 +453,25 @@ return ${SUCCESS}
 }
 
 
-#inputs :
-# geosar file  , aoi (shapefile,or aoi string),
-#output : variable for storing burst lists
+# Public: get the bursts corssing an area of 
+# interest for a s1 subswath
+#
+# Takes a geosar file as input , an aoi defined
+# by a shapefile path, or with the aoi coordinates,
+# and a variable name used to store the bursts from
+# the image crossing the aoi.
+#
+# $1 - geosar file of an s1 image subswath
+# $2 - aoi , either shapefile path or coordinates string
+# $3 - variable name storing output burst list 
+#
+# Examples
+#
+#   s1_bursts_aoi ${geosarfile} ${aoishapefile} burstlist
+#
+# Returns 0 on success and non-zero otherwise
+#   
+
 function s1_bursts_aoi()
 {
 	if [ $# -lt 3 ]; then
@@ -466,6 +609,23 @@ function create_interf_properties()
     fi
 }
 
+# Public: Download dem from an image catalogue reference
+#
+# Takes an image reference and a processing folder as
+# input. The coordinates of the DEM are inferred from the
+# image reference. The dem is the downloaded and imported
+# in the processing folder
+#
+# $1 - image reference
+# $2 - processing folder where the dem is saved
+#
+# Examples
+#
+#   download_dem_from_ref ${imgref} ${demdir}
+#
+# Returns $SUCCESS if the dem was downloaded
+# and extracted properly
+#   
 
 function download_dem_from_ref()
 {
@@ -526,11 +686,30 @@ function download_dem_from_ref()
 }
 
 
-# create a shapefile from a bounding box string
-# arguments:
-# bounding box string of the form "minlon,minlat,maxlon,maxlat"
-# output diretory where shapefile shall be created
-# tag used to name the shapefile
+
+# Public: Create a shapefile from an aoi coordinate
+# string definition
+#
+# Takes as argument bounding box string of the form:
+# "minlon,minlat,maxlon,maxlat" , the output folder
+# where the shapefile shall be created ,and the tag
+# used to name the shapefile
+# 
+# The function will echo the path of the created folder
+#
+# $1 - area bounding box string
+# $2 - output folder where the shapefile is created
+# $3 - tag name of the shapefile
+#
+# The function will echo the path of the created shapefile
+# 
+#  Examples
+#
+#   shape=$(aoi2shp "${latlonbox}" "${outdir}" "aoi")
+#
+# Returns $SUCCESS if the folder was created or an error code otherwise
+#   
+
 function aoi2shp()
 {
     if [ $# -lt 3 ]; then
@@ -619,10 +798,26 @@ function aoi2shp()
  }
 
 
-# check the intersection between 2 products
-# arguments:
-# ref1 ref2 catalogue references to each product 
-#return 0 if products intersect , non zero otherwise
+
+# Public: Check the intersection between 2 products
+#
+# Takes 2 image catalogue references and checks whether 
+# the 2 images intersect
+#
+# $1 - image catalogue reference
+# $2 - image catalogue reference
+#
+# Examples
+#
+#   product_intersect $ref1 $ref2
+#
+# Returns 0 if the images intersect or if 
+# the coordinates of the images cannot be inferred
+# from the reference.
+# A non-zero output is returned when the images
+# do not intersect
+#   
+
 function product_intersect()
 {
     if [ $# -lt 2 ]; then
@@ -655,11 +850,22 @@ function product_intersect()
     return $status
 }
 
-# check the intersection between 2 polygons
-# arguments:
-# 2 arrays with polygon geometry definitions
-# call: polygon_intersect wkt1[@] wkt2[@] 
-#return 0 if products intersect , non zero otherwise
+# Public: Check whether two polygons intersect
+#
+# Takes 2 polygon geometry definitions and checks
+# for the intersection between the 2
+#
+# $1 - polygon geometry definition
+# $2 - polygon geometry definition
+#
+# Examples
+#
+#  polygon_intersect wkt1[@]} wkt2[@]
+#
+# Returns 0 if the polygons intersect 
+# non-zero otherwise
+#   
+
 function polygon_intersect()
 {
     if [ $# -lt 2 ]; then
@@ -771,6 +977,23 @@ function image_equalize_range()
     return 0
 }
 
+# Public: Get a string representation of 
+# the acquisition time field of a geosar
+# file
+#
+# Takes the path of a geosar file as input
+#
+# The function will echo the result
+#
+# $1 - path to a geosar file
+#
+# Examples
+#
+#   time=$(geosar_time ${geosar})
+#
+# Returns 0 on success and non-zero otherwise
+#   
+
 function geosar_time()
 {
     if [ $# -lt 1 ]; then
@@ -798,7 +1021,20 @@ EOF
     return 0
 }
 
-
+# Public: get a wkt string with the extent of 
+# a geotiff file
+#
+# Takes a geotiff file as input
+# The function will echo the polygon wkt definition
+#
+# $1 - geotiff file
+#
+# Examples
+#
+#   wkt=$(tiff2wkt ${geotiff})
+#
+# Returns 0 on success and non-zero othwerise
+#   
 function tiff2wkt(){
     
     if [ $# -lt 1 ]; then
@@ -827,7 +1063,22 @@ function tiff2wkt(){
     return 0
 }
 
-
+# Public: Extract a zipped .SAFE S1 product file
+#
+# Takes a zipped .SAFE folder and a folder for 
+# extraction. The function will extract the annotation
+# and measurement files from the zipped input
+# 
+# The function will echo the unzipped folder
+#
+# $1 - input zip file containing a .SAFE archive
+#
+# Examples
+#
+#   safe=$( extract_safe ${zip} ${datadir} )
+#
+# Returns 0 on success and non-zero otherwise
+#   
 function extract_safe() {
   safe_archive=${1}
   optional=${2}
@@ -838,6 +1089,7 @@ function extract_safe() {
   
   local annotlist=""
   local measurlist=""
+  local manifest=""
   
   if [ -n "${pol}" ]; then
       annotlist=$( unzip -l "${safe_archive}" | grep annotation | grep .xml | grep -v calibration | awk '{ print $4 }' | grep -i "\-${pol}\-")
@@ -846,6 +1098,8 @@ function extract_safe() {
       annotlist=$( unzip -l "${safe_archive}" | grep annotation | grep .xml | grep -v calibration | awk '{ print $4 }' )
       measurlist=$( unzip -l "${safe_archive}" | grep measurement | grep .tiff | awk '{ print $4 }' )
   fi
+  
+  manifest=$(unzip -l "${safe_archive}"  | grep manifest | awk '{print $4}')
 
   #check for empty measurement and annotation lists
   if [ -z "${measurlist}" ]; then
@@ -858,6 +1112,12 @@ function extract_safe() {
       return ${ERRINVALID}
   fi
   
+  if [ -n "${manifest}" ]; then
+      for manifestfile in ${manifest} ; do
+	  unzip -o -j ${safe_archive} "${manifestfile}" -d "${safe}/"
+      done
+  fi
+
 
 
   for annotation in $annotlist
@@ -894,6 +1154,22 @@ function extract_safe() {
 
 
 ########################################################################################
+# Public: Get an image tag from a geosar file
+#
+# Takes the path of a geosar file as input
+#
+# The function will echo tag associated to the 
+# geosar file
+#
+# $1 - path to a geosar file
+#
+# Examples
+#
+#   tag=$(geosartag ${geosar})
+#
+# Returns 0 on success and non-zero otherwise
+#   
+
 function geosartag()
 {
     if [ $# -lt 1 ]; then
@@ -1022,6 +1298,22 @@ function ext2dop()
     return 0
 }
 
+# Public: Download the precise orbit for an image
+#
+# Takes a geosar file path as argument as well as 
+# a processing folder for storing the orbit file.
+# the folder should have a "/ORB" sub-directory
+#
+# $1 - input geosar file
+# $2 - a processing folder
+#
+# Examples
+#
+#   preciseorb ${geosar} ${procdir}
+#
+# Returns 0 on success and non-zero otherwise
+#   
+
 function preciseorb()
 {
     if [ $# -lt 2 ]; then
@@ -1059,6 +1351,24 @@ function preciseorb()
     return $storb
 }
 
+# Public: Download dem from s1 image annotations
+#
+# Takes a folder containing s1 annotations ,
+# and an output folder where the dem should be stored
+# The function will look for s1 xml annotation files
+# and infer the area extents. The dem is the downloaded 
+# and imported
+#
+# $1 - input folder
+# $2 - output folder where to save the imported dem
+#
+# Examples
+#
+#   download_dem_from_anotation ${indir} ${demdir}
+#
+# Returns $SUCCESS if the dem was downloaded
+# and extracted properly
+#   
 
 function download_dem_from_anotation()
 {
@@ -1123,6 +1433,22 @@ function download_dem_from_anotation()
     return ${SUCCESS}
 }
 
+# Public: Get the polarization information
+# from an image tag
+#
+# Takes a string holding an image tag and 
+# a variable to store the polarization information
+#
+# $1 - image tag string
+# $2 - output variable name
+#
+# Examples
+#
+#   product_tag_get_pol $tag pol
+#
+# Returns $SUCCESS on success ,and error code otherwise
+#   
+
 function product_tag_get_pol()
 {
     if [ $# -lt 2 ]; then
@@ -1142,6 +1468,22 @@ function product_tag_get_pol()
      
     return ${SUCCESS}
 }
+
+# Public: Get the sensor information
+# from an image tag
+#
+# Takes a string holding an image tag and 
+# a variable to store the sensor information
+#
+# $1 - image tag string
+# $2 - output variable name
+#
+# Examples
+#
+#   product_tag_get_sensor $tag sensor
+#
+# Returns $SUCCESS on success ,and error code otherwise
+#   
 
 function product_tag_get_sensor()
 {
@@ -1163,7 +1505,21 @@ function product_tag_get_sensor()
     return ${SUCCESS}
 }
 
-
+# Public: Get the acquisition mode information
+# from an image tag
+#
+# Takes a string holding an image tag and 
+# a variable to store the acquisition mode information
+#
+# $1 - image tag string
+# $2 - output variable name
+#
+# Examples
+#
+#   product_tag_get_mode "${tag}" mode
+#
+# Returns $SUCCESS on success ,and error code otherwise
+#   
 function product_tag_get_mode()
 {
     if [ $# -lt 2 ]; then
@@ -1184,6 +1540,25 @@ function product_tag_get_mode()
     return ${SUCCESS}
 }
 
+# Public: Read the geometric undersampling parameters
+#
+# Takes a geosar file , the properties file as arguments
+# and 2 variables for storing the geometric undersampling 
+# parameters
+# 
+# The function will echo the path of the created folder
+#
+# $1 - geosar file
+# $2 - properties file
+# $3 - variable name for output azimuth undersampling factor
+# $4 - variable name for output range undersampling factor
+#
+# Examples
+#
+#   read_geom_undersampling $geosar ${properties} aziunder ranunder
+#
+# Returns $SUCCESS on success or an error code otherwise
+#   
 
 function read_geom_undersampling()
 {
@@ -1220,6 +1595,26 @@ function read_geom_undersampling()
     return ${SUCCESS}
 }
 
+# Public: Read the multilook factors
+#
+# Takes a geosar file , the properties file as arguments
+# and variables for storing the azimuth and range multilook 
+# factors ,as well as the range interpolation factor
+# 
+# The function will echo the path of the created folder
+#
+# $1 - geosar file
+# $2 - properties file
+# $3 - variable name for output azimuth multilook factor
+# $4 - variable name for output range multilook factor
+# $5 - variable name for range oversampling factor
+#
+# Examples
+#
+#   read_multilook factors $geosar ${properties} mlazi mlran interpx
+#
+# Returns $SUCCESS on success or an error code otherwise
+#   
 
 function read_multilook_factors()
 {
@@ -1290,7 +1685,21 @@ function read_multilook_factors()
     return ${SUCCESS}
 }
 
-
+# Public: Get the orbit number information
+# from an image tag
+#
+# Takes a string holding an image tag and 
+# a variable to store the orbit number information
+#
+# $1 - image tag string
+# $2 - output variable name
+#
+# Examples
+#
+#   product_tag_get_orbnum $tag orbnum
+#
+# Returns $SUCCESS on success ,and error code otherwise
+#   
 function product_tag_get_orbnum()
 {
     if [ $# -lt 2 ]; then
@@ -1313,96 +1722,32 @@ function product_tag_get_orbnum()
 
 
 
-#function computing the area of slc scene within aoi
-#aoi specified as minlon,minlat,maxlon,maxlat
-function geosar_get_aoi_coords()
-{
-    if [ $# -lt 2 ]; then
-	return 1
-    fi
-
-
-    local geosar="$1"
-    local aoi="$2"
-
-    local tmpdir_="/tmp"
-    
-    if [ $# -ge 3 ]; then
-	tmpdir_=$3
-    fi
-
-    
-    #aoi is of the form
-    #minlon,minlat,maxlon,maxlat
-    aoi=(`echo "$aoi" | sed 's@,@ @g'`)
-    
-    if [ ${#aoi[@]} -lt 4 ]; then
-	return 1
-    fi
-
-    tmpgeosar=${tmpdir_}/tmp.geosar
-    
-    cp "${geosar}" "${tmpgeosar}" || {
-return 1
-    }
-    
-    #increase the aoi extent
-    local extentfactor=0.2
-    local diffx=`echo "(${aoi[2]} - ${aoi[0]})*${extentfactor}" | bc -l`
-    local minlon=`echo "${aoi[0]} - ${diffx}" | bc -l`
-    local maxlon=`echo "${aoi[2]} + ${diffx}" | bc -l`
-    local diffy=`echo "(${aoi[3]} - ${aoi[1]})*${extentfactor}" | bc -l`
-    local minlat=`echo "${aoi[1]} - ${diffy}" | bc -l`
-    local maxlat=`echo "${aoi[3]} + ${diffy}" | bc -l`
-
-    sed -i -e 's@\(CENTER LATITUDE\)\([[:space:]]*\)\(.*\)@\1\2---@g;s@\(CENTER LONGITUDE\)\([[:space:]]*\)\(.*\)@\1\2---@g;s@\(LL LATITUDE\)\([[:space:]]*\)\(.*\)@\1\2---@g' "${tmpgeosar}"
-    sed -i -e 's@\(LR LATITUDE\)\([[:space:]]*\)\(.*\)@\1\2---@g;s@\(UL LATITUDE\)\([[:space:]]*\)\(.*\)@\1\2---@g;s@\(UR LATITUDE\)\([[:space:]]*\)\(.*\)@\1\2---@g' "${tmpgeosar}"
-    sed -i -e 's@\(LR LONGITUDE\)\([[:space:]]*\)\(.*\)@\1\2---@g;s@\(UL LONGITUDE\)\([[:space:]]*\)\(.*\)@\1\2---@g;s@\(UR LONGITUDE\)\([[:space:]]*\)\(.*\)@\1\2---@g' "${tmpgeosar}"
-    sed -i -e 's@\(LL LONGITUDE\)\([[:space:]]*\)\(.*\)@\1\2---@g' "${tmpgeosar}"
-
-    #set the lat/long from the aoi
-    local cmdll="sed -i -e 's@\(LL LATITUDE\)\([[:space:]]*\)\([^\n]*\)@\1\2"${minlat}"@g' \"${tmpgeosar}\""
-    local cmdul="sed -i -e 's@\(UL LATITUDE\)\([[:space:]]*\)\([^\n]*\)@\1\2"${maxlat}"@g' \"${tmpgeosar}\""
-    
-    local cmdlll="sed -i -e 's@\(LL LONGITUDE\)\([[:space:]]*\)\([^\n]*\)@\1\2"${minlon}"@g' \"${tmpgeosar}\""
-    local cmdull="sed -i -e 's@\(UL LONGITUDE\)\([[:space:]]*\)\([^\n]*\)@\1\2"${maxlon}"@g' \"${tmpgeosar}\""
-    
-    
-    
-    eval "${cmdll}"
-    eval "${cmdul}"
-    eval "${cmdull}"
-    eval "${cmdlll}"
-    
-    if [ -z "${EXE_DIR}" ]; then
-	EXE_DIR=/opt/diapason/exe.dir/
-    fi
-    
-    roi=$(sarovlp.pl --geosarm="$geosar" --geosars="${tmpgeosar}" --exedir="${EXE_DIR}")
-    
-    status=$?
-
-    #no overlapping between image and aoi
-    if [ $status -eq 255 ]; then
-	return 255
-    fi
-    
-    if [ -z "$roi" ]; then
-	return 1
-    fi
-
-    echo $roi
-
-    return 0
-    
-}
-
-
+# Public: copy a folder to hdfs
+#
+# Takes as inputs a remote hdfs path ,
+# a local path ,and a string for the 
+# target folder name
+#
+# The function tries to create the remote path
+# if the destination folder already exists the 
+# data is not copied. 
+#
+# $1 - remote hdfs location
+# $2 - local folder
+# $3 - name for the remote folder to create
+#
+# Examples
+#
+#   export_folder "${hdfsroot}/node_coreg/data" ${pubsmtemp} ${tagsm}
+#
+# Returns $SUCCESS if the remote folder was properly exported or 
+# if it was created previously by another process
+#   
 function export_folder()
 {
     if [ $# -lt 3 ]; then
 	ciop-log "INFO" "Usage:$FUNCTION remotedir localdir tag"
-	return 1
+	return ${ERRMISSING}
     fi
 
     local remoteroot="$1"
@@ -1443,8 +1788,23 @@ function export_folder()
 
 
 
-#function computing the area of slc scene within aoi
-#aoi specified as minlon,minlat,maxlon,maxlat
+
+# Public: Computing the area of slc scene within aoi
+#
+# The aoi specified as minlon,minlat,maxlon,maxlat
+#
+# $1 - input geosar file
+# $2 - input aoi coordinates
+# $3 - input dem descriptor
+# $4 - output folder to store slc extraction coordinates file
+#
+# Examples
+#
+#  roi=$(geosar_get_aoi_coords2 "${smgeo}" "${aoidef}" "${procdir}/DAT/dem.dat"  "${procdir}/log/")
+#
+# Returns $SUCCESS on success or an error code otherwise
+#   
+
 function geosar_get_aoi_coords2()
 {
     if [ $# -lt 4 ]; then
@@ -1488,6 +1848,17 @@ function geosar_get_aoi_coords2()
     
     return ${SUCCESS}   
 }
+
+# Public: Trap function for temporary processing directory cleanups
+#
+# This function calls procCleanup and exits
+#
+# The function takes no argument
+#
+# Example
+# trap trapFunction INT TERM
+#   
+#
 
 function trapFunction()
 {
