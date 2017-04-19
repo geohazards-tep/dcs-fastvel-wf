@@ -1,5 +1,24 @@
 #!/bin/bash
 
+# Public: Import image files published
+# from node_import that are needed
+# for interf selection
+#
+# The function takes as arguments the local 
+# folder where the files should be imported,
+# the workflow id , and the tag of the image
+#
+# $1 - local folder for data import
+# $2 - workflow id
+# $3 - image tag
+#
+# Examples
+#
+#   import_data_selection "${serverdir}" "${wkid}" "${imagetag}"
+#
+# Returns 0 on success and 1 on error
+#   
+
 function import_data_selection()
 {
     if [ $# -lt 3 ]; then
@@ -67,7 +86,19 @@ function import_data_selection()
     return 0
 }
 
-
+# Public: Run interferogram selection
+# The function takes as arguments the local 
+# folder where the relevant image files 
+# have been imported with import_data_selection
+#
+# $1 - local processing folder
+#
+# Examples
+#
+#       run_selection "${serverdir}" 
+#
+# Returns 0 on success and non-zero on error
+#   
 function run_selection()
 {
     if [ $# -lt 1 ]; then
@@ -175,6 +206,21 @@ function run_selection()
     return ${isstatus}
 }
 
+# Public: create a file merging the contents 
+# of each image folder's dataset file
+#
+# Takes the local processing folder
+# and the workflow id
+#
+# $1 - local processing folder
+# $2 - workflow id
+#
+# Examples
+#
+#   merge_datasetlist "${serverdir}" "${wkid}"
+#
+# Returns $SUCCESS on success or an error code otherwise
+#   
 
 function merge_datasetlist()
 {
@@ -209,6 +255,21 @@ function merge_datasetlist()
     return ${SUCCESS}
 }
 
+# Public: search and remove images inconsistent
+# with the rest of the data set
+#
+# Takes the local processing folder
+# and the workflow id
+#
+# $1 - local processing folder
+# $2 - workflow id
+#
+# Examples
+#
+#   filter_imported_data "${serverdir}" "${wkid}"
+#
+# Returns status of last command
+#   
 
 function filter_imported_data()
 {
@@ -233,7 +294,21 @@ function filter_imported_data()
 
 }
 
-
+# Public: Create a virtual x server with Xvfb
+#
+# The function takes as argument a folder 
+# to be used for temporary files.
+# A suitable display is determined 
+# and used with Xfvb
+# 
+# The function will echo the display number
+# 
+# Examples
+#
+#   local display=$(xvfblaunch "${TMPDIR}")
+#
+# Returns $SUCCESS if the folder was created or an error code otherwise
+#   
 function xvfblaunch()
 {
     if [ $# -lt 1 ]; then
@@ -269,6 +344,19 @@ function xvfblaunch()
     return ${ERRGENERIC}    
 }
 
+# Public: Run precise sm on selected master image
+#
+#
+# $1 - local processing directory
+# $2 - tag for the super-master image
+# $3 - workflow id
+#
+# Examples
+#
+#   compute_precise_sm "${serverdir}" "${smtag}" "${wkid}"
+#
+# Returns $SUCCESS if the folder was created or an error code otherwise
+#   
 
 function compute_precise_sm()
 {
