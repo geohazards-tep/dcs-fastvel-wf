@@ -154,6 +154,8 @@ function run_selection()
     
     [ -z "${orbitsm}" ] && {
 	ciop-log "ERROR" "Failed to determine Master aquisition"
+	local msg=`cat ${serverdir}/log/interf_selection.log`
+	ciop-log "ERROR" "$msg"
 	return 1
     } 
 
@@ -161,6 +163,8 @@ function run_selection()
     
     [ ! -e "${geosarsm}" ] && {
 	ciop-log "ERROR" "Missing Master aquistion geosar"
+	local msg=`cat ${serverdir}/log/interf_selection.log`
+	ciop-log "ERROR" "$msg"
 	return 1
     }
     
