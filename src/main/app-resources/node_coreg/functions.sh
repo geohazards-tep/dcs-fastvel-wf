@@ -1,5 +1,20 @@
 #!/bin/bash
 
+# Public: import to local storage a .SAFE folder
+# published by node_import
+#
+# Takes a local folder path , the application workflow
+# id and an image tag 
+# 
+# The function will echo the path of the imported .SAFE
+#
+# $1 - local folder
+# $2 - workflow id
+# $3 - image tag
+#
+#
+# Returns $SUCCESS or an error code 
+#   
 
 function import_safe()
 {
@@ -33,6 +48,23 @@ function import_safe()
     
     return ${SUCCESS}
 }
+
+# Public: import to local storage an extracted image
+# published by node_import
+#
+# Takes a local folder path , the application workflow
+# id and an image tag 
+# 
+# The function will copy to the local folder the image
+# geosar ,orbit, slc , multilook and doppler files
+#
+# $1 - local folder
+# $2 - workflow id
+# $3 - image tag
+#
+#
+# Returns $SUCCESS or an error code
+#   
 
 function import_extracted_image()
 {
@@ -91,6 +123,20 @@ function import_extracted_image()
 }
 
 
+# Public: import to local storage data from previous nodes
+# required to run the coregistration process
+# 
+# Takes a local folder path , the application workflow
+# id
+# 
+# The function will copy to the local folder the DEM ,AOI
+# 
+#
+# $1 - local folder
+# $2 - workflow id
+#
+# Returns $SUCCESS or an error code
+#   
 function import_data_from_previous_nodes()
 {
     if [ $# -lt 2 ]; then
@@ -155,6 +201,18 @@ function import_data_from_previous_nodes()
    return $SUCCESS 
 }
 
+# Public: import master image to local folder
+# 
+# Takes a local folder path , the application workflow
+# id
+# 
+# The function will copy to the local folder the master image
+# 
+# $1 - local folder
+# $2 - workflow id
+#
+# Returns $SUCCESS or an error code 
+# 
 function import_master()
 {
     if [ $# -lt 2 ]; then
@@ -217,7 +275,22 @@ function import_master()
 }
 
 
-
+# Public: run coregistration process for s1 iw data
+# 
+# Takes 2 folders containing respectively the master and
+# slave .SAFE folder , as well as the master and slave image
+# tags
+# 
+# The function upon success will copy the registered slave image
+# to an hdfs folder named with the slave image tag 
+# 
+# $1 - master image folder
+# $2 - slave image folder
+# $3 - master image tag
+# $4 - slave image tag
+#
+# Returns $SUCCESS or an error code 
+# 
 function run_coreg_process_tops()
 {
     if [ $# -lt 4 ]; then
@@ -394,6 +467,19 @@ function run_coreg_process_tops()
     return ${SUCCESS}
 }
 
+# Public: delete image data from node_import
+# 
+# Takes as argument an image tag and a workflow id
+# 
+# The function upon success will copy the registered slave image
+# to an hdfs folder named with the slave image tag 
+# 
+# $1 - image tag
+# $2 - workflow id
+#
+# Returns $SUCCESS or an error code if the image tag is
+# not present in the node_import results folder
+# 
 function cleanup_import_data()
 {
     if [ $# -lt 2 ]; then
@@ -418,7 +504,18 @@ function cleanup_import_data()
 }
 
 
-
+# Public: run coregistration process for stripmap 
+# images
+# 
+# The function upon success will copy the registered slave image
+# to an hdfs folder named with the slave image tag 
+# 
+# $1 - local folder
+# $2 - master image tag
+# $3 - slave image tag
+#
+# Returns $SUCCESS or an error code otherwise
+# 
 function run_coreg_stripmap()
 {
     if [ $# -lt 3  ]; then
@@ -556,6 +653,16 @@ function run_coreg_stripmap()
     fi
 
     return ${SUCCESS}
+
+# Public: run coregistration process  
+# 
+# $1 - local processing folder
+# $2 - local imported slave image folder
+# $3 - master image tag
+# $4 - slave image tag
+# $5 - workflow id
+#
+# Returns $SUCCESS or an error code otherwise
 }
 
 function run_coreg_process()
