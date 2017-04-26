@@ -1,6 +1,20 @@
 #!/bin/bash
 
 
+# Public: import coregistered images results from node_coreg
+#
+# Takes a local folder and the workflow id as arguments
+# 
+# The function will copy to the local folder for each image
+# the geosar ,orb,coregistered ci2 files
+#
+# $1 - local processing folder path
+# $2 - workflow id
+#
+#
+# Returns 0 on success and 1 on error
+#   
+
 function import_coreg_results()
 {
     if [ $# -lt 2 ]; then
@@ -46,6 +60,21 @@ function import_coreg_results()
     return 0
 }
 
+# Public: import interferogram list
+#
+# Takes a local folder and the workflow id as arguments
+# 
+# The function will copy to the local folder the results
+# of the interferogram selection from the MASTER_SELECTION
+# folder from node_import
+#
+# $1 - local processing folder path
+# $2 - workflow id
+#
+#
+# Returns 0 on success and 1 on error
+#   
+
 function import_interf_list()
 {
     if [ $# -lt 2 ]; then
@@ -85,6 +114,19 @@ function import_interf_list()
     return 0
 
 }
+
+# Public: DEM from node_selection results
+#
+# Takes a local folder and the workflow id as arguments
+# 
+# The function will copy to the local folder the DEM
+#
+# $1 - local processing folder path
+# $2 - workflow id
+#
+#
+# Returns 0 on success and 1 on error
+#   
 
 function import_dem_from_node_selection()
 {
@@ -132,6 +174,17 @@ function import_dem_from_node_selection()
     return ${SUCCESS}
 }
 
+
+# Public: check the inputs for the interferogram generation
+#
+# Takes a local folder and the interferogram list
+# 
+#
+# $1 - local processing folder path
+# $2 - path to interferogram list
+#
+# Returns 0 on success and 1 on error
+#   
 function check_data()
 {
     if [ $# -lt 2 ]; then
@@ -172,7 +225,16 @@ function check_data()
 }
 
 
-
+# Public: check the inputs for the interferogram generation
+#
+# Takes a local folder and the interferogram list
+# 
+#
+# $1 - local processing folder path
+# $2 - path to interferogram list
+#
+# Returns $SUCCESS on success and an error code otherwise
+#
 function generate_interferograms()
 {
     if [ $# -lt 2 ]; then
@@ -337,6 +399,17 @@ function generate_interferograms()
     return ${SUCCESS}
 }
 
+# Public: import aoi to local folder
+#
+# Takes a local folder ,the master image tag,
+# and workflow id as arguments
+# 
+# $1 - local processing folder path
+# $2 - master image tag
+# $3 - workflow id
+#
+# Returns $SUCCESS on success and an error code otherwise
+#
 function import_aoi_def_from_node_import()
 {
      if [ $# -lt 3 ]; then
