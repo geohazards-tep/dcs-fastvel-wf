@@ -695,8 +695,6 @@ function download_dem_from_ref()
 # where the shapefile shall be created ,and the tag
 # used to name the shapefile
 # 
-# The function will echo the path of the created folder
-#
 # $1 - area bounding box string
 # $2 - output folder where the shapefile is created
 # $3 - tag name of the shapefile
@@ -1546,7 +1544,6 @@ function product_tag_get_mode()
 # and 2 variables for storing the geometric undersampling 
 # parameters
 # 
-# The function will echo the path of the created folder
 #
 # $1 - geosar file
 # $2 - properties file
@@ -1601,7 +1598,6 @@ function read_geom_undersampling()
 # and variables for storing the azimuth and range multilook 
 # factors ,as well as the range interpolation factor
 # 
-# The function will echo the path of the created folder
 #
 # $1 - geosar file
 # $2 - properties file
@@ -1864,4 +1860,86 @@ function trapFunction()
 {
     procCleanup
     exit
+}
+
+
+# Public: Read the multilook factors suitable
+# for orbit correction
+#
+# Takes a geosar file , the properties file as arguments
+# and variables for storing the azimuth and range multilook 
+# factors 
+# 
+#
+# $1 - geosar file
+# $2 - properties file
+# $3 - variable name for output azimuth multilook factor
+# $4 - variable name for output range multilook factor
+#
+# Examples
+#
+#   read_multilook_factors_orbit_correcion $geosar ${properties} mlazi mlran 
+#
+# Returns $SUCCESS on success or an error code otherwise
+#   
+
+function read_multilook_factors_orbit_correction()
+{
+    if [ $# -lt 4 ]; then
+	echo "Usage: prodtag properties MLAZ MLRAN "
+	return ${ERRMISSING}
+    fi
+
+    local prodtag="$1"
+    local properties="$2"
+    
+    [ -z "`type -p xmlstarlet`" ] && {
+	ciop-log "ERROR" "Missing xmlstarlet utility"
+	return ${ERRMISSING}
+    }
+    
+    local sensor
+    product_tag_get_sensor "${prodtag}" sensor
+    sensor=`echo "${sensor}" |  sed 's@[[:space:]]@@g' | sed 's@S1[AB]@S1@g;s@ERS[12]@ERS@g'`
+    
+    local mode
+    product_tag_get_mode "${prodtag}" mode
+    
+    if [ -z "${sensor}" ] || [ -z "${mode}" ]; then
+	ciop-log "ERROR" "Failed to parse product tag ${prodtag}"
+ 	return ${ERRINVALID}
+    fi
+
+    local mlaz_
+    local mlran_
+
+    case "${sensor}" in
+	S1*)
+	    if [ "$mode" != "IW" ] && [ "${mode}" != "EW" ]; then
+		mode="SM"
+	    fi
+	    mlaz_=`cat ${properties} | xmlstarlet sel -t -v "//sensor[starts-with(@name,'${sensor}')]/acquisitionMode[@name='${mode}']/orbitCorrectionAzimuthMultilookFactor"`
+	    mlran_=`cat ${properties} | xmlstarlet sel -t -v "//sensor[starts-with(@name,'${sensor}')]/acquisitionMode[@name='${mode}']/orbitCorrectionRangeMultilookFactor"`
+ 	    ;;
+	*)
+	    mlaz_=`cat ${properties} | xmlstarlet sel -t -v "//sensor[starts-with(@name,'${sensor}')]/acquisitionMode/orbitCorrectionAzimuthMultilookFactor"`
+	    mlran_=`cat ${properties} | xmlstarlet sel -t -v "//sensor[starts-with(@name,'${sensor}')]/acquisitionMode/orbitCorrectionRangeMultilookFactor"`
+	    ;;
+    esac
+    
+    
+
+    #echo "--> $mlran_ ${mlaz_} ${interpx_}"
+    
+    if [ -z "${mlran_}" ] || [ -z "${mlaz_}" ]; then
+	ciop-log "ERROR" "Failed to read multilook factors from properties file ${properties}"
+	return ${ERRINVALID}
+    fi
+    
+
+    eval "$3=\"${mlaz_}\""
+    eval "$4=\"${mlran_}\""
+     
+
+    return ${SUCCESS}
 }
