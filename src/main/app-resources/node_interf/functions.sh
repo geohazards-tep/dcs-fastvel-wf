@@ -303,6 +303,14 @@ function generate_interferograms()
     fi
 	
     echo "INFO read ${azunder} ${rnunder}"
+    #multilook factors for interferograms used in orbit correction
+    local ocmlaz
+    local ocmlran
+    
+    read_multilook_factors_orbit_correction ${smtag} "${PROPERTIES_FILE}" ocmlaz ocmlran  || {
+	ciop-log "ERROR" "Failed to determine orbit correction multilook parameters from properties file ${PROPERTIES_FILE}"
+	return ${ERRGENERIC}
+    }
 
     #SM geosar
     local smgeo=${procdir}/DAT/GEOSAR/${smorb}.geosar_ext
@@ -360,6 +368,14 @@ function generate_interferograms()
 	    ciop-log "ERROR" "Generation of interferogram ${interflist[0]} - ${interflist[1]} Failed"
 	    return ${ERRMISSING}
 	}
+	
+	interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=${ocmlaz} --mlran=${ocmlran} --aziunder=${azunder} --ranunder=${rnunder} --demdesc=${procdir}/DAT/dem.dat --coh  --dir=${procdir}/DIF_INT --outdir=${procdir}/DIF_INT/ --tmpdir=${procdir}/TEMP --nobort --noinc --noran   > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}_ml${ocmlaz}${ocmlran}.log 2<&1
+
+	[ -n "${roi}" ] && {
+	    ln -s ${procdir}/DIF_INT/pha_cut_${interflist[0]}_${interflist[1]}_ml${mlaz}${mlran}.pha ${procdir}/DIF_INT/pha_${interflist[0]}_${interflist[1]}_ml${mlaz}${mlran}.pha
+	    ln -s ${procdir}/DIF_INT/pha_cut_${interflist[0]}_${interflist[1]}_ml${mlaz}${mlran}.rad ${procdir}/DIF_INT/pha_${interflist[0]}_${interflist[1]}_ml${mlaz}${mlran}.rad
+	    
+	} 
 
 	ciop-log "INFO" "Generation of interferogram ${interflist[0]} - ${interflist[1]} successful"
 
@@ -395,6 +411,8 @@ function generate_interferograms()
 
     #remove the coregistered images
     rm -f ${serverdir}/GEO_CI2_EXT_LIN/geo* > /dev/null 2<&1
+    #remove symbolic links if any
+    find ${serverdir}/DIF_INT/ -type l -exec rm '{}' \; > /dev/null 2<&1
 
     return ${SUCCESS}
 }
