@@ -35,6 +35,7 @@ function main()
     
     [ -z "$wkid" ] && {
 	ciop-log "ERROR" "Empty _WF_ID"
+	echo ""
 	return $ERRGENERIC
     }
 
@@ -45,6 +46,7 @@ function main()
     
     [ ! -e "${serverdir}" ] && {
 	ciop-log "ERROR" "Cannot create directory in ${TMPDIR}"
+	echo ""
 	return $ERRPERM
     }
     
@@ -53,6 +55,7 @@ function main()
     merge_datasetlist "${serverdir}" "${wkid}" || {
 	ciop-log "ERROR" "Importing dataset list failed"
  	procCleanup
+	echo ""
 	return $ERRGENERIC
     }
 
@@ -65,6 +68,7 @@ function main()
 	[ $importstatus -ne 0 ] && {
 	    ciop-log "ERROR" "Failed to import ${imagetag}"
 	    procCleanup
+	    echo ""
 	    return ${ERRGENERIC}
 	}
 	
@@ -74,6 +78,7 @@ function main()
     run_selection "${serverdir}" || {
 	ciop-log "ERROR" "Error running interf_selection"
 	procCleanup
+	echo ""
 	return ${ERRGENERIC}
     }
 
@@ -87,6 +92,7 @@ function main()
     if [ "$pubstatus" != "0" ]; then
 	ciop-log "ERROR" "publishing failure : status $pubstatus"
 	procCleanup 
+	echo ""
 	return ${ERRGENERIC}
     fi
 
@@ -110,6 +116,7 @@ function main()
 	ciop-publish -a -r "${aoidir}" || {
 	    ciop-log "ERROR" "Failed to publish AOI folder"
 	    procCleanup
+	    echo ""
 	    return ${ERRGENERIC}
 	}
     fi
@@ -122,6 +129,7 @@ function main()
     [ -z "${smtag}" ] && {
 	ciop-log "ERROR" "Missing Master image tag"
 	procCleanup 
+	echo ""
 	return ${ERRGENERIC}
     }
     
@@ -129,6 +137,7 @@ function main()
     [ -z "${smdir}" ] && {
 	ciop-log "ERROR" "Unable to find Master image import directory"
 	procCleanup 
+	echo ""
 	return ${ERRGENERIC}
     }
 
@@ -137,6 +146,7 @@ function main()
     [ -z "${smdatasetfile}" ] && {
 	ciop-log "ERROR" "Unable to find Master image dataset file"
 	procCleanup 
+	echo ""
 	return ${ERRGENERIC}
     }
 
@@ -145,7 +155,8 @@ function main()
     
     [ -z "${smref}" ] && {
 	ciop-log "ERROR" "Empty Master image ref"
-	procCleanup 
+	procCleanup
+	echo ""
 	return ${ERRGENERIC}
     } 
 
@@ -168,6 +179,7 @@ function main()
     if [ "${demst}" != "0" ]; then
 	ciop-log "ERROR" "Unable to retrieve DEM"
 	procCleanup
+	echo ""
 	return ${ERRGENERIC}
     fi
     
@@ -175,6 +187,7 @@ function main()
     ciop-publish -a -r "${demdir}" || {
 	ciop-log "ERROR" "Failed to publish DEM"
 	procCleanup
+	echo ""
 	return ${ERRGENERIC}
     }
 
@@ -189,7 +202,7 @@ function main()
 	    continue
 	fi
 	echo "${smtag}@${imagetag}" > ${stageout}
-        #echo "${smtag}@${imagetag}" | ciop-publish -s
+        echo "${smtag}@${imagetag}" | ciop-publish -s
 	####################TEST########################
 	#echo "${smtag}@${imagetag}" | ciop-publish -s
     done
@@ -197,6 +210,7 @@ function main()
     ciop-publish -a "${stageout}" || {
 	ciop-log "ERROR" "Failed to publish stageout data"
 	procCleanup
+	echo ""
 	return ${ERRGENERIC}
     }
     
@@ -208,34 +222,19 @@ function main()
 #set trap
 trap trapFunction INT TERM
 
-
-mainexec=1
-
-while read data
-do
-    if [ $mainexec -eq 1 ] ; then
-	export sm=$(main) || {
-	    
-	    exit ${ERRGENERIC}
-	}
+create_lock ${_WF_ID} && {
+    export sm=$(main) || {
 	
-	[ -z "$sm" ] && {
-	    exit ${ERRGENERIC}
-	}
-	mainexec=0
-    fi
+	exit ${ERRGENERIC}
+    }
+    
+    [ -z "$sm" ] && {
+	exit ${ERRGENERIC}
+    }
+    
+}
     
     
-    ciop-log "INFO" "published from previous node ${data} mainexec ${mainexec}"
-    ciop-log "INFO" "Determined Master image to be ${sm}"
-
-    if [ "$sm" == "${data}" ];then
-	continue
-    fi
-    pubdata="${sm}@${data}"
-    ciop-publish "INFO" "publishin $pubdata"
-    echo "${pubdata}"  | ciop-publish -s 
-done
 
 exit ${SUCCESS}
 

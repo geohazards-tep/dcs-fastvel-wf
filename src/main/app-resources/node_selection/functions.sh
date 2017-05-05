@@ -437,3 +437,41 @@ function compute_precise_sm()
     ciop-log "INFO" "Precise sm status ${precstatus}"
     return ${SUCCESS}
 }
+
+
+# Public: create a lock directory
+# in hdfs folder for node_selection 
+# output
+#
+# $1 - workflow id
+#
+# Examples
+#
+#   compute_precise_sm "${serverdir}" "${smtag}" "${wkid}"
+#
+# Returns $SUCCESS if the folder was created or an error code otherwise
+#   
+function create_lock()
+{
+    if [ $# -lt 1 ]; then
+	return $ERRMISSING
+    fi
+    
+    local wkid=$1
+    
+    local hdfsroot=`ciop-browseresults -r ${wkid} | sed 's@/node_@ @g' | awk '{print $1}' | sort --unique`
+    
+    if [ -z "$hdfsroot" ]; then
+	return $ERRINVALID
+    fi
+    
+    local lockdir="${hdfsroot}/node_selection/lock"
+    
+    hadoop dfs -mkdir ${lockdir} > /dev/null 2<&1 || {
+	return ${ERRGENERIC}
+    }
+    
+    ciop-log "INFO" "created ${lockdir} `date`"
+
+    return $SUCCESS
+}
