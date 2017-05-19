@@ -23,6 +23,10 @@
     </jobTemplate>
     <jobTemplate id="job_selection">
       <streamingExecutable>/application/node_selection/run.sh</streamingExecutable>
+      <defaultParameters>
+	<parameter id="btemp_max" title="Maximum Temporal Baseline [days]" abstract="Maximum time interval for interferogram selection" scope="runtime" minOccurs="0" maxOccurs="1" />
+	<parameter id="bperp_max" title="Maximum Perpendicular Baseline [meters]" abstract="Maximum perpendicular baseline" scope="runtime" minOccurs="0" maxOccurs="1" />
+      </defaultParameters>
       <defaultJobconf>       
 	<property id="mapred.map.max.attempts">1</property>
 	<property id="ciop.job.max.tasks">1</property>

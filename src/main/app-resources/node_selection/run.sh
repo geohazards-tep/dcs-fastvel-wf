@@ -27,6 +27,10 @@ export datdir=${DAT_DIR}
 #IDL License
 export LM_LICENSE_FILE=1700@idl.terradue.int
 
+#read parameters
+export btempmax=`ciop-getparam btemp_max`
+export bperpmax=`ciop-getparam bperp_max`
+
 #main
 function main()
 {

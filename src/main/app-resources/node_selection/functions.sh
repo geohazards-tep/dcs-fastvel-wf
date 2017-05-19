@@ -142,6 +142,15 @@ function run_selection()
 	return 1
     }
     
+    #set parameters inputs from the user if any
+    if [ -n "${btempmax}" ]; then
+	export BTEMP_MAX_IN="${btempmax}"
+    fi
+
+    if [ -n "${bperpmax}" ]; then
+	export BPERP_MAX_IN="${bperpmax}"
+    fi 
+
     #launch xvfb as interf_selection needs a display
     local display=$(xvfblaunch "${TMPDIR}")
     
