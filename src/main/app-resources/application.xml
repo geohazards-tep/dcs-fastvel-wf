@@ -26,6 +26,8 @@
       <defaultParameters>
 	<parameter id="btemp_max" title="Maximum Temporal Baseline [days]" abstract="Maximum time interval for interferogram selection" scope="runtime" minOccurs="0" maxOccurs="1" />
 	<parameter id="bperp_max" title="Maximum Perpendicular Baseline [meters]" abstract="Maximum perpendicular baseline" scope="runtime" minOccurs="0" maxOccurs="1" />
+	<parameter id="dopdiff_max" title="Maximum Doppler Difference [Hz]" abstract="Maximum doppler difference" scope="runtime" minOccurs="0" maxOccurs="1" />
+	
       </defaultParameters>
       <defaultJobconf>       
 	<property id="mapred.map.max.attempts">1</property>
