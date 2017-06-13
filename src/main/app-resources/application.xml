@@ -4,7 +4,7 @@
     <jobTemplate id="job_import">
       <streamingExecutable>/application/node_import/run.sh</streamingExecutable>
       <defaultParameters>
-	<parameter id="aoi" title="Area Of Interest" abstract="Restrict processing to selected area [minlon,minlat,maxlon,maxlat]."  scope="runtime"  target="geo:box" type="BoundingBoxData" minOccurs="0" maxOccurs="1"></parameter>
+	<parameter id="aoi" title="Area Of Interest" abstract="Restrict processing to selected area [minlon,minlat,maxlon,maxlat]."  scope="runtime"  target="geo:box" type="BoundingBoxData" minOccurs="1" maxOccurs="1"></parameter>
 	<parameter id="pol" title="Polarization" abstract="Polarization" scope="test" maxOccurs="1">
 	  <options>
 	    <option>VV</option>
