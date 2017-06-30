@@ -90,13 +90,25 @@ function main()
     #cleanup node_coreg node
     node_cleanup "${wkid}" "node_coreg"
 
-    #publish data
 
     #rename processing folder
     local pubdir=${TMPDIR}/INSAR_PROCESSING
+
     mv "${serverdir}" "${pubdir}"
     serverdir="${pubdir}"
 
+
+    #prepare fastvel config
+    #fastvelconf=$(generate_fast_vel_conf)
+
+    local mode=`ciop-getparam processing_mode`
+
+    if [[ "$mode" == "MTA" ]]; then
+        generate_fast_vel_conf "${pubdir}"
+        execute_fast_vel "${TMPDIR}"
+        ciop-publish -r "${pubdir}/output_fastvel"
+    fi
+    #publish data
     ciop-publish -a -r "${pubdir}" || {
 	ciop-log "ERROR" "Failed to publish folder ${pubdir}"
 	return ${ERRGENERIC}

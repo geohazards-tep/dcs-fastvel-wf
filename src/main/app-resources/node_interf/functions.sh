@@ -462,3 +462,199 @@ function import_aoi_def_from_node_import()
      
      return ${SUCCESS}
 }
+
+# Public: Create a virtual x server with Xvfb
+#
+# The function takes as argument a folder 
+# to be used for temporary files.
+# A suitable display is determined 
+# and used with Xfvb
+# 
+# The function will echo the display number
+# 
+# Examples
+#
+#   local display=$(xvfblaunch "${TMPDIR}")
+#
+# Returns $SUCCESS if the folder was created or an error code otherwise
+#   
+function xvfblaunch()
+{
+    if [ $# -lt 1 ]; then
+	echo ""
+	return ${ERRMISSING}
+    fi
+
+    local tempdir="$1"
+    
+    for x in `seq 1 1000`; do 
+	local lockfile="${tempdir}/xvfblock_${x}"
+	if ( set -o noclobber ; echo $$ >  "${lockfile}") 2>/dev/null; then
+	    
+	    set +o noclobber;
+	    #check for already running X server
+	    if [ -f "/tmp/.X${x}-lock" ]; then
+		continue
+	    fi
+	    #launch xvfb
+	    Xvfb :${x} -screen 0 1280x1024x16 & > /dev/null 2<&1
+	    local xvfbstatus="$?"
+	    [ "$xvfbstatus" != "0" ] && {
+		rm "${lockfile}"
+		continue
+	    } 
+	    local xvfbpid=$!
+	    echo ${xvfbpid} > "${lockfile}"
+	    echo "${x}"
+	    return ${SUCCESS}
+	fi
+    done
+    
+    return ${ERRGENERIC}    
+}
+
+# Public: generate config file to launch fast vel algorithm
+# 
+# $1 - local processing folder path
+#
+# Returns $SUCCESS on success and an error code otherwise
+function generate_fast_vel_conf()
+{
+	local procdir="$1"
+	local templatefile="/opt/fastvel/src/CONF_FILE/conf_file_platform.txt"
+	local templateprocessedfile="${procdir}/conf_fastvel_processed.txt"
+	local fastvelconf="${procdir}/DAT/fastvel.conf"
+	if [ ! -f "${fastvelconf}" ]; then
+		ciop-log "ERROR" "no fast vel configuration file found"
+		return ${ERRMISSING}
+	fi
+	aux_file="${procdir}/conf_fastvel_processed_aux.txt"
+	cp $templatefile $aux_file
+	SM=0
+
+	#parse template file with the fastvel.conf values
+	while read line; do
+		array_line=(${line// / })
+		if [[ "${array_line[0]}" == "SM" ]]; then
+			SM=${array_line[1]}
+		fi
+		sed -e "s#{${array_line[0]}}#${array_line[1]}#g" \
+		< $aux_file > $templateprocessedfile
+		cp $templateprocessedfile $aux_file
+	done < $fastvelconf
+
+	#create output directory for fast vel algorithm
+	mkdir -p {procdir}/output_fastvel || {
+		ciop-log "ERROR" "Error creating directory in ${procdir}"
+		procCleanup 
+		return ${ERRPERM}
+    }
+
+
+	#get values needed from INSAR_PROCESSING folder
+	local outputdir="${procdir}/output_fastvel"
+	local nameslcfile="${procdir}/DAT/name_slc_auto.txt"
+
+	if [ ! -f "${nameslcfile}" ]; then
+		ciop-log "ERROR" "no slc file found"
+		return ${ERRMISSING}
+	fi
+
+	local nameinterffile="${procdir}/DAT/list_interf_auto_selection_final_period.txt"
+
+	if [ ! -f "${nameinterffile}" ]; then
+		ciop-log "ERROR" "no name of interferogram list found"
+		return ${ERRMISSING}
+	fi
+
+	local origphadir="${procdir}/DIF_INT"
+	local phadir="${procdir}/DIF_INT"
+	local cohdir="${procdir}/DIF_INT"
+	local demfile="${procdir}/DAT/dem.tif"
+
+	if [ ! -f "${demfile}" ]; then
+		ciop-log "ERROR" "no DEM file found"
+		return ${ERRMISSING}
+	fi
+
+	local cartopreciselat="${procdir}/GEOCODE/carto_precise_${SM}_lat.r8"
+
+	if [ ! -f "${cartopreciselat}" ]; then
+		ciop-log "ERROR" "Can not found carto precise lat of SM"
+		return ${ERRMISSING}
+	fi
+	local cartopreciselon="${procdir}/GEOCODE/carto_precise_${SM}_lon.r8"
+
+	if [ ! -f "${cartopreciselon}" ]; then
+		ciop-log "ERROR" "Can not found carto precise lon of SM"
+		return ${ERRMISSING}
+	fi
+
+	#get values needed from UI
+	local coherencethreshold=`ciop-getparam Coh_Threshold`
+	local pointreflon=`ciop-getparam ref_point_lon`
+	local pointreflat=`ciop-getparam ref_point_lat`
+	local aps_correlation=`ciop-getparam aps_smoothing`
+
+	#parse variables on the template processed file
+	sed -e "s#{OUTPUT_DIR}#$outputdir#g" \
+      -e "s#{NAME_SLC}#$nameslcfile#g"  \
+      -e "s#{NAME_INTERF_FILE}#$nameinterffile#g"  \
+      -e "s#{ORIG_PHA_DIR}#$origphadir#g"  \
+      -e "s#{PHA_DIR}#$phadir#g"  \
+      -e "s#{COH_DIR}#$cohdir#g"  \
+      -e "s#{DEM_FILE}#$demfile#g"  \
+      -e "s#{CARTO_PRECISE_LAT}#$cartopreciselat#g"  \
+      -e "s#{CARTO_PRECISE_LON}#$cartopreciselon#g"  \
+      -e "s#{COHERENCE_THRESHOLD}#$coherencethreshold#g"  \
+      -e "s#{POINT_REF_LON}#$pointreflon#g"  \
+      -e "s#{POINT_REF_LAT}#$pointreflat#g"  \
+      -e "s#{APS_CORRELATION}#$aps_correlation#g"  \
+      < $aux_file > $templateprocessedfile
+
+    return ${SUCCESS}
+}
+
+# Public: execute fast vel algorithm
+#
+# Returns $SUCCESS on success and an error code otherwise
+function execute_fast_vel()
+{
+	TMPDIR="$1"
+	#launch xvfb as fast vel needs a display
+    local display=$(xvfblaunch "${TMPDIR}")
+    [ -z "${display}" ] && {
+		ciop-log "ERRROR" "cannot launch Xvfb"
+		return 1
+    }
+    export DISPLAY=:${display}.0
+    #fast vel
+    local fastvelsav="/opt/fastvel/bin/fastvel.sav"
+
+    #backup and set the SHELL environment variable to bash
+    local SHELLBACK=${SHELL}
+    export SHELL=${BASH}
+    [ -z "${SHELL}" ] &&  {
+	export SHELL=/bin/bash
+    }
+
+    fastvelconffile="${procdir}/conf_fastvel_processed.txt"
+
+    if [ ! -f "${fastvelconffile}" ]; then
+		ciop-log "ERROR" "no fast vel configuration for algorithm file found"
+		return ${ERRMISSING}
+	fi
+
+    idl -rt=$fastvelsav -args $fastvelconf
+
+    #reset the SHELL variable to its original value
+    export SHELL=${SHELLBACK}
+    
+    #cleanup Xvfb stuff
+    unset DISPLAY
+    local xvfbpid=`head -1 ${TMPDIR}/xvfblock_${display}`
+    kill ${xvfbpid} > /dev/null 2<&1
+    rm "${TMPDIR}/xvfblock_${display}" 
+    return ${SUCCESS}
+
+}
