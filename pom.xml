@@ -121,6 +121,7 @@
 					<requires>
 					  <require>diapason</require>
 					  <require>interf_selection</require>
+					  <require>fastvel</require>
 					</requires>
 					<needarch>true</needarch>
 				</configuration>
