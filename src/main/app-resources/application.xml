@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="us-ascii"?>
+<application xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" id="fvel-insar">
+  <jobTemplates>
+    <jobTemplate id="job_import">
+      <streamingExecutable>/application/node_import/run.sh</streamingExecutable>
+      <defaultParameters>
+	<parameter id="aoi" title="Area Of Interest" abstract="Restrict processing to selected area [minlon,minlat,maxlon,maxlat]."  scope="runtime"  target="geo:box" type="BoundingBoxData" minOccurs="1" maxOccurs="1"></parameter>
+	<parameter id="pol" title="Polarization" abstract="Polarization" scope="test" maxOccurs="1">
+	  <options>
+	    <option>VV</option>
+	    <option>VH</option>
+	    <option>HH</option>
+	    <option>HV</option>
+	    <default>VV</default>
+	  </options>
+	</parameter>
+
+      </defaultParameters>
+      <defaultJobconf>       
+	<property id="mapred.map.max.attempts">1</property>
+        <property id="mapred.task.timeout">720000000</property>                      
+      </defaultJobconf>
+    </jobTemplate>
+    <jobTemplate id="job_selection">
+      <streamingExecutable>/application/node_selection/run.sh</streamingExecutable>
+      <defaultParameters>
+	<parameter id="btemp_max" title="Maximum Temporal Baseline [days]" abstract="Maximum time interval for interferogram selection" scope="runtime" minOccurs="0" maxOccurs="1" />
+	<parameter id="bperp_max" title="Maximum Perpendicular Baseline [meters]" abstract="Maximum perpendicular baseline" scope="runtime" minOccurs="0" maxOccurs="1" />
+	<parameter id="dopdiff_max" title="Maximum Doppler Difference [Hz]" abstract="Maximum doppler difference" scope="runtime" minOccurs="0" maxOccurs="1" />
+	
+      </defaultParameters>
+      <defaultJobconf>       
+	<property id="mapred.map.max.attempts">1</property>
+	<property id="ciop.job.max.tasks">1</property>
+	<property id="mapred.task.timeout">720000000</property>                      
+      </defaultJobconf>
+    </jobTemplate>
+    <jobTemplate id="job_coreg">
+      <streamingExecutable>/application/node_coreg/run.sh</streamingExecutable>
+      <defaultJobconf>       
+	<property id="mapred.map.max.attempts">1</property>
+	<property id="mapred.task.timeout">720000000</property>                      
+      </defaultJobconf>
+    </jobTemplate>
+    <jobTemplate id="job_interf">
+      <streamingExecutable>/application/node_interf/run.sh</streamingExecutable>
+      <defaultJobconf>       
+	<property id="mapred.map.max.attempts">1</property>
+	<property id="ciop.job.max.tasks">1</property>
+	<property id="mapred.task.timeout">720000000</property>                      
+      </defaultJobconf>
+    </jobTemplate>
+
+  </jobTemplates>
+
+    <workflow id="fastvel" title="FASTVEL" abstract="description" >
+          <workflowVersion>1.0</workflowVersion>
+	  <node id="node_import">
+	    <job id="job_import" />
+	    <sources>
+	      <source scope="runtime" id="datalist" title="SAR data set" abstract="Define the SAR data set" refid="string:list">
+	      </source>
+	    </sources>
+	  </node>
+	  <node id="node_selection">
+	    <job id="job_selection" />
+	    <sources>
+	      <source refid="wf:node">node_import</source>
+	    </sources>
+	  </node>
+	  <node id="node_coreg">
+	    <job id="job_coreg" />
+	    <sources>
+	      <source refid="wf:node">node_selection</source>
+	    </sources>
+	  </node>
+	  <node id="node_interf">
+	    <job id="job_interf" />
+	    <sources>
+	      <source refid="wf:node">node_coreg</source>
+	    </sources>
+	  </node>
+    </workflow>
+</application>
