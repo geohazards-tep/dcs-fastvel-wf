@@ -24,10 +24,9 @@
     <jobTemplate id="job_selection">
       <streamingExecutable>/application/node_selection/run.sh</streamingExecutable>
       <defaultParameters>
-	<parameter id="btemp_max" title="Maximum Temporal Baseline [days]" abstract="Maximum time interval for interferogram selection" scope="runtime" minOccurs="0" maxOccurs="1" />
-	<parameter id="bperp_max" title="Maximum Perpendicular Baseline [meters]" abstract="Maximum perpendicular baseline" scope="runtime" minOccurs="0" maxOccurs="1" />
-	<parameter id="dopdiff_max" title="Maximum Doppler Difference [Hz]" abstract="Maximum doppler difference" scope="runtime" minOccurs="0" maxOccurs="1" />
-	
+	    <parameter id="btemp_max" title="Maximum Temporal Baseline [days]" abstract="Maximum time interval for interferogram selection" scope="runtime" minOccurs="0" maxOccurs="1">365</parameter>
+        <parameter id="bperp_max" title="Maximum Perpendicular Baseline [m]" abstract="Maximum perpendicular baseline" scope="runtime" minOccurs="0" maxOccurs="1">400</parameter>
+        <parameter id="dopdiff_max" title="Maximum Doppler Difference [Hz]" abstract="Maximum doppler difference" scope="runtime" minOccurs="0" maxOccurs="1">1000</parameter>
       </defaultParameters>
       <defaultJobconf>       
 	<property id="mapred.map.max.attempts">1</property>
@@ -54,9 +53,6 @@
 				<default>MTA</default>
 			</options>
 		</parameter>
-	    <parameter id="btemp_max" title="Maximum Temporal Baseline [days]" abstract="Maximum time interval for interferogram selection" scope="runtime" minOccurs="0" maxOccurs="1">365</parameter>
-        <parameter id="bperp_max" title="Maximum Perpendicular Baseline [m]" abstract="Maximum perpendicular baseline" scope="runtime" minOccurs="0" maxOccurs="1">400</parameter>
-        <parameter id="dopdiff_max" title="Maximum Doppler Difference [Hz]" abstract="Maximum doppler difference" scope="runtime" minOccurs="0" maxOccurs="1">1000</parameter>
         <parameter id="max_dopler_centroid" title="Maximum Doppler Centroid [Hz]" abstract="Maximum Doppler Centroid [Hz]" scope="runtime" minOccurs="0" maxOccurs="1">2000</parameter>
 <!--         <parameter id="Goldstein_Weight" title="Goldstein Weight" abstract="Goldstein Weight" scope="runtime" minOccurs="0" maxOccurs="1">0.5</parameter> -->
 		<parameter id="Coh_Threshold" title="Coherence Threshold" abstract="Coherence Threshold" scope="runtime" minOccurs="0" maxOccurs="1">0.5</parameter>
