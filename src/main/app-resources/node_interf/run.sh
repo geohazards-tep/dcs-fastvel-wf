@@ -106,7 +106,7 @@ function main()
     if [[ "$mode" == "MTA" ]]; then
         generate_fast_vel_conf "${pubdir}"
         execute_fast_vel "${TMPDIR}"
-        ciop-publish -r "${pubdir}/output_fastvel"
+        publish_final_results_mta "${pubdir}/output_fastvel/Final_Results"
     fi
     #publish data
     ciop-publish -a -r "${pubdir}" || {
