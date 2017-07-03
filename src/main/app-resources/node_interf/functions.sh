@@ -560,7 +560,7 @@ function generate_fast_vel_conf()
 		return ${ERRMISSING}
 	fi
 
-	local nameinterffile="${procdir}/DAT/list_interf_auto_selection_final_period.txt"
+	local nameinterffile="${procdir}/DAT/list_interf_auto.txt"
 
 	if [ ! -f "${nameinterffile}" ]; then
 		ciop-log "ERROR" "no name of interferogram list found"
