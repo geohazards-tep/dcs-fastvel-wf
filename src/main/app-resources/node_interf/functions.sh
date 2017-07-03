@@ -658,3 +658,18 @@ function execute_fast_vel()
     return ${SUCCESS}
 
 }
+
+# Public: publish final results of MTA
+#
+# Returns $SUCCESS on success and an error code otherwise
+function publish_final_results_mta () {
+	local pubdir="$1"
+	if [ ! -d "$pubdir" ]; then
+  		ciop-log "ERROR" "Final results folder for mta not found"
+		return ${ERRMISSING}
+	fi
+	for result in `ls -1 $pubdir/*rgb.tif`; do
+		ciop-publish -m ${result}
+  	done
+  	return ${SUCCESS}
+}
