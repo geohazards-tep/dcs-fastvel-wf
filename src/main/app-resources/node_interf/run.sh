@@ -105,7 +105,7 @@ function main()
 
     if [[ "$mode" == "MTA" ]]; then
         generate_fast_vel_conf "${pubdir}"
-        execute_fast_vel "${TMPDIR}"
+        execute_fast_vel "${TMPDIR}" "${pubdir}"
         publish_final_results_mta "${pubdir}/output_fastvel/Final_Results"
     fi
     #publish data

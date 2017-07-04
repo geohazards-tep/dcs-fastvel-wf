@@ -620,7 +620,8 @@ function generate_fast_vel_conf()
 # Returns $SUCCESS on success and an error code otherwise
 function execute_fast_vel()
 {
-	TMPDIR="$1"
+	local TMPDIR="$1"
+	local procdir="$2"
 	#launch xvfb as fast vel needs a display
     local display=$(xvfblaunch "${TMPDIR}")
     [ -z "${display}" ] && {
@@ -645,7 +646,7 @@ function execute_fast_vel()
 		return ${ERRMISSING}
 	fi
 
-    idl -rt=$fastvelsav -args $fastvelconf
+    idl -rt=$fastvelsav -args "$fastvelconffile"
 
     #reset the SHELL variable to its original value
     export SHELL=${SHELLBACK}
