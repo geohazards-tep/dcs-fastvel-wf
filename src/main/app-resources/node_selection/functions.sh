@@ -157,6 +157,11 @@ function run_selection()
 	export DOPDIFF_MAX_IN="${dopdiffmax}"
 	ciop-log "INFO" "Maximum doppler difference : ${DOPDIFF_MAX_IN}"
     fi
+    
+    if [ -n "${dopimgmax}" ]; then
+	export DOPIMAGE_MAX_IN="${dopimgmax}"
+	ciop-log "INFO" "Maximum doppler centoid : ${DOPIMAGE_MAX_IN}"
+    fi
 
     #launch xvfb as interf_selection needs a display
     local display=$(xvfblaunch "${TMPDIR}")

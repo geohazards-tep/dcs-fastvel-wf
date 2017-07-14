@@ -544,7 +544,7 @@ function generate_fast_vel_conf()
 	done < $fastvelconf
 
 	#create output directory for fast vel algorithm
-	mkdir -p {procdir}/output_fastvel || {
+	mkdir -p "${procdir}/output_fastvel" || {
 		ciop-log "ERROR" "Error creating directory in ${procdir}"
 		procCleanup 
 		return ${ERRPERM}

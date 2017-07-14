@@ -96,7 +96,12 @@ function main()
 
     mv "${serverdir}" "${pubdir}"
     serverdir="${pubdir}"
-
+    
+       #publish data
+    ciop-publish -a -r "${pubdir}" || {
+	ciop-log "ERROR" "Failed to publish folder ${pubdir}"
+	return ${ERRGENERIC}
+    }
 
     #prepare fastvel config
     #fastvelconf=$(generate_fast_vel_conf)
@@ -108,12 +113,7 @@ function main()
         execute_fast_vel "${TMPDIR}" "${pubdir}"
         publish_final_results_mta "${pubdir}/output_fastvel/Final_Results"
     fi
-    #publish data
-    ciop-publish -a -r "${pubdir}" || {
-	ciop-log "ERROR" "Failed to publish folder ${pubdir}"
-	return ${ERRGENERIC}
-}
-
+ 
     return ${SUCCESS}
 }
 
