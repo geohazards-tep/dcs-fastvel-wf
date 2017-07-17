@@ -593,6 +593,11 @@ function run_coreg_stripmap()
     
     if [ $status -ne 0 ]; then
 	ciop-log "ERROR" "Failed to register orbit ${orbslave}"
+	echo "-------------------------------------------------${orbslave}"
+	cat ${procdir}/GEO_CI2/${orbslave}_coregistration.log
+	echo "-------------------------------------------------${orbslave}"
+	cat ${procdir}/GEO_CI2_EXT_LIN/${orbslave}_linear_coregistration.log
+	echo "-------------------------------------------------${orbslave}"
 	
 	return ${ERRGENERIC}
     fi 
@@ -611,6 +616,9 @@ function run_coreg_stripmap()
 	ln -s ${procdir}/ORB/${orbsm}.orb ${pubsmtemp}/ORB/
 	ln -s ${procdir}/GEO_CI2_EXT_LIN/geo_${orbsm}_${orbsm}.* ${pubsmtemp}/GEO_CI2_EXT_LIN/
 	ln -s ${procdir}/SLC_CI2/doppler_${orbsm} ${pubsmtemp}/SLC_CI2/
+	ln -s ${procdir}/GEO_CI2/${orbsm}_coregistration.log ${pubsmtemp}/log/
+	ln -s ${procdir}/GEO_CI2_EXT_LIN/${orbsm}_linear_coregistration.log ${pubsmtemp}/log/
+	
 
 	#publish folder
 	
@@ -636,8 +644,10 @@ function run_coreg_stripmap()
 	mv ${procdir}/ORB/${orbslave}.orb ${pubtemp}/ORB/
 	mv ${procdir}/GEO_CI2_EXT_LIN/geo_${orbslave}_${orbsm}.* ${pubtemp}/GEO_CI2_EXT_LIN/
 	mv ${procdir}/SLC_CI2/doppler_${orbslave} ${pubtemp}/SLC_CI2/
+	mv ${procdir}/GEO_CI2/${orbslave}_coregistration.log ${pubtemp}/log/
+	mv ${procdir}/GEO_CI2_EXT_LIN/${orbslave}_linear_coregistration.log ${pubtemp}/log/
 	
-	#clean data
+        #clean data
 	rm -f ${procdir}/GEO_CI2/geo_${orbslave}_${orbsm}.*
 	
 	#publish folder
