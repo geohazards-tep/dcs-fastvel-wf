@@ -1943,3 +1943,35 @@ function read_multilook_factors_orbit_correction()
 
     return ${SUCCESS}
 }
+
+
+# Public: Create a png and a pngw file from a 
+# geotiff file
+#
+# Takes a geotiff file  as input
+# 
+#
+# $1 - geotiff file
+#
+# Examples
+#
+#   create_pngs_from_tif $geotiff 
+#
+# Returns $SUCCESS on success or an error code otherwise
+#   
+function create_pngs_from_tif () {
+    
+  if [ $# -lt 1 ]; then
+      return ${ERRMISSING}
+  fi
+  local tif="$1"
+  png=${tif%.*}.png
+
+  gdal_translate -oT Byte -of PNG -co worldfile=yes -a_nodata 0 "${tif}" "${png}" > /dev/null 2<&1
+
+  wld=${png%.*}.wld
+  pngw=${png%.*}.pngw
+  [ -e "${wld}" ] && mv "${wld}"  "${pngw}"
+
+  return ${SUCCESS}
+}
