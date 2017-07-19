@@ -612,6 +612,14 @@ function generate_fast_vel_conf()
       -e "s#{APS_CORRELATION}#$aps_correlation#g"  \
       < $aux_file > $templateprocessedfile
 
+	#de-activate steps that are still w.i.p
+	sed -i -e  's@\(DO_DIFF_INT_SELECTION[[:space:]]*\)\([^\n]*\)@\10@g'  ${templateprocessedfile}
+	sed -i -e  's@\(DO_QC_DIFF_INTS[[:space:]]*\)\([^\n]*\)@\10@g'  ${templateprocessedfile}
+	sed -i -e  's@\(DO_ORBITAL_ERRORS_COMP[[:space:]]*\)\([^\n]*\)@\10@g'  ${templateprocessedfile}
+	sed -i -e  's@\(DO_ROUGH_APS_MITIGATION[[:space:]]*\)\([^\n]*\)@\10@g'  ${templateprocessedfile}
+	sed -i -e  's@\(DO_PSI_LINEAR_POST_PROC[[:space:]]*\)\([^\n]*\)@\10@g'  ${templateprocessedfile}
+
+
     return ${SUCCESS}
 }
 
@@ -670,7 +678,13 @@ function publish_final_results_mta () {
 		return ${ERRMISSING}
 	fi
 	for result in `ls -1 $pubdir/*rgb.tif`; do
-		ciop-publish -m ${result}
+	    create_pngs_from_tif "${result}"
+	    ciop-publish -m ${result}
   	done
+
+	for png in `find ${pubdir} -maxdepth 1  -name "*.png" -print -o -name "*.pngw" -print`; do
+	    ciop-publish -m "${png}"
+	done
+
   	return ${SUCCESS}
 }
