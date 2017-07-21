@@ -385,7 +385,7 @@ function generate_interferograms()
     #fvel config generation
     local numsar=`ls ${procdir}/ORB/*.orb | wc -l`
     local numint=`cat ${listinterf} | wc -l`
-    local mlrad=`ls ${procdir}/DIF_INT/pha*.rad | head -1`
+    local mlrad=`ls -tra  ${procdir}/DIF_INT/pha*.rad | head -1`
     local fvelconf=${procdir}/DAT/fastvel.conf
     
     genfvelconf.pl --geosar=${smgeo} --altambig=${altambigfile} --mlradfile=${mlrad} --mlaz=${mlaz} --mlran=${mlran} --numsar=${numsar} --numint=${numint}  "${roiopt}"   1> ${fvelconf} 2> ${procdir}/log/genfvel.err
