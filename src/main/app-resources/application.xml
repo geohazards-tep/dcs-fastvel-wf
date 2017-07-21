@@ -68,7 +68,7 @@
 
   </jobTemplates>
 
-    <workflow id="fastvel" title="FASTVEL" abstract="description" >
+    <workflow id="fastvel" title="FASTVEL" abstract="FASTVEL algorithm has been developed by TRE-Altamira for generating differential interferograms or PSI-based mean displacement velocity maps from a set of Sentinel-1 or ASAR images" >
           <workflowVersion>1.0</workflowVersion>
 	  <node id="node_import">
 	    <job id="job_import" />
