@@ -80,13 +80,27 @@ function main()
 
     #get aoi string definition
     import_aoi_def_from_node_import "${serverdir}" "${mastertag}" "${wkid}"
-    
+
     ciop-log  "INFO"  "Data ready for interf generation"
-    generate_interferograms "${serverdir}" "${mastertag}" || {
+    
+
+    local mode=`ciop-getparam processing_mode`
+
+    if [[ "$mode" == "IFG" ]]; then
+	generate_ortho_interferograms "${serverdir}" "${mastertag}" || {
+	ciop-log "ERROR" "Error generating interferograms"
+	return ${ERRGENERIC}
+    }
+    else
+	generate_interferograms "${serverdir}" "${mastertag}" || {
 	ciop-log "ERROR" "Error generating interferograms"
 	return ${ERRGENERIC}
     }
 
+    fi
+
+    
+    
     #cleanup node_coreg node
     node_cleanup "${wkid}" "node_coreg"
 
@@ -106,7 +120,6 @@ function main()
     #prepare fastvel config
     #fastvelconf=$(generate_fast_vel_conf)
 
-    local mode=`ciop-getparam processing_mode`
 
     if [[ "$mode" == "MTA" ]]; then
         generate_fast_vel_conf "${pubdir}"

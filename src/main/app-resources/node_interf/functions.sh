@@ -225,7 +225,7 @@ function check_data()
 }
 
 
-# Public: check the inputs for the interferogram generation
+# Public: perform the interferogram generation
 #
 # Takes a local folder and the interferogram list
 # 
@@ -687,4 +687,188 @@ function publish_final_results_mta () {
 	done
 
   	return ${SUCCESS}
+}
+
+
+# Public: perform interferogram generation
+# and publish them in ortho geometry
+#
+# Takes a local folder and the interferogram list
+# 
+#
+# $1 - local processing folder path
+# $2 - path to interferogram list
+#
+# Returns $SUCCESS on success and an error code otherwise
+#
+function generate_ortho_interferograms()
+{
+    if [ $# -lt 2 ]; then
+	ciop-log "ERROR" "Missing argument procdir"
+	return ${ERRMISSING}
+    fi
+
+    local procdir="$1"
+    local smtag="$2"
+
+    if [ -z "${PROPERTIES_FILE}" ] || [ ! -e "${PROPERTIES_FILE}" ]; then
+	ciop-log "ERROR" "Undefined PROPERTIES_FILE"
+	return ${ERRMISSING}
+    fi
+    
+    #infer super-master orbit
+    local smselection="${procdir}/DAT/SM_selection_auto.txt"
+    
+    [ ! -e "${smselection}" ] && {
+	ciop-log "ERROR" "Missing file ${smselection}"
+	return ${ERRMISSING}
+    }
+
+    local smorb=`grep [0-9] ${smselection} | head -1`
+    
+    [ -z "${smorb}" ] && {
+	ciop-log "ERROR" "Unable to determine super-master orbit number"
+	return ${ERRINVALID}
+    }
+
+    local listinterf="${procdir}/DAT/list_interf_auto.txt"
+    
+    [ ! -e "${listinterf}" ] && {
+	ciop-log "ERROR" "Missing file ${listinterf}"
+	return ${ERRMISSING}
+    }
+
+    #read parameters from properties
+    local rnunder
+    local azunder
+    read_geom_undersampling "${procdir}/DAT/GEOSAR/${smorb}.geosar_ext" "${PROPERTIES_FILE}" azunder rnunder || {
+	ciop-log "ERROR" "Failed to determine geometric undersampling factors"
+	return ${ERRGENERIC}
+    }
+
+    local mlaz
+    local mlran
+    local interpx
+    #
+    read_multilook_factors ${smtag} "${PROPERTIES_FILE}" mlaz mlran interpx || {
+	ciop-log "ERROR" "Failed to determine multilook parameters from properties file ${PROPERTIES_FILE}"
+	return ${ERRGENERIC}
+    }
+    
+    if [ -z "${mlaz}" ] || [ -z "${mlran}" ] || [ -z "${interpx}" ]; then
+	ciop-log "ERROR" "Failed to determine multilook parameters from properties file ${PROPERTIES_FILE}"
+	return ${ERRGENERIC}	
+    fi
+
+    mlran=`echo ${mlran}*${interpx} | bc -l`
+    
+
+    if [ -z "${azunder}" ] || [ -z "${rnunder}" ]; then
+	    ciop-log "ERROR" "Failed to determine geometric undersampling factors"
+	    return ${ERRGENERIC}
+    fi
+	
+    echo "INFO read ${azunder} ${rnunder}"
+    #multilook factors for interferograms used in orbit correction
+    local ocmlaz
+    local ocmlran
+    
+    read_multilook_factors_orbit_correction ${smtag} "${PROPERTIES_FILE}" ocmlaz ocmlran  || {
+	ciop-log "ERROR" "Failed to determine orbit correction multilook parameters from properties file ${PROPERTIES_FILE}"
+	return ${ERRGENERIC}
+    }
+
+    #SM geosar
+    local smgeo=${procdir}/DAT/GEOSAR/${smorb}.geosar_ext
+    #set some fields in the geosar
+    sed -i -e 's@\(AZIMUTH DOPPLER VALUE\)\([[:space:]]*\)\([^\n]*\)@\1\20.0@g' "${smgeo}"
+    sed -i -e 's@\(DEM TYPE\)\([[:space:]]*\)\([^\n]*\)@\1\2TRUE@g' "${smgeo}"
+    
+    #set lat/long corner
+    setlatlongeosar.pl --geosar=${smgeo} --tmpdir=${procdir}/TEMP > /dev/null 2<&1
+
+    #alt_ambig
+    local altambigfile="${procdir}/DAT/AMBIG.DAT"
+    ls ${procdir}/ORB/*.orb | alt_ambig.pl --geosar=${smgeo}  -o "${altambigfile}"   > /dev/null 2<&1
+    
+    ##################################################
+    #cp ${smgeo} ${procdir}/DIF_INT/
+    ##################################################
+    
+    #aoi
+    local aoifile="${procdir}/DAT/aoi.txt"
+    local aoidef=`grep "[0-9]" ${aoifile} | head -1`
+    local roi=""
+    local roiopt=""
+    
+    if [ -e "${aoifile}" ] && [ -n "$aoidef" ] ; then
+	roi=$(geosar_get_aoi_coords2 "${smgeo}" "${aoidef}" "${procdir}/DAT/dem.dat"  "${procdir}/log/" )
+	local roist=$?
+	ciop-log "INFO" "geosar_get_aoi_coords status ${roist}"
+    else
+	ciop-log "INFO" "Missing file ${aoifile}"
+	ciop-log "INFO" "aoi defn ${aoidef}"
+    fi
+
+    ciop-log "INFO" "aoi roi defn : ${roi}"
+    [ -n "${roi}" ] && {
+    	roiopt="--roi=${roi}"
+    }
+    
+    #iterate over list interf
+    while read data;do
+	declare -a interflist
+	interflist=(`echo $data`)
+	
+	[ ${#interflist[@]} -lt 2 ] && {
+	    ciop-log "ERROR" "Invalid line ${data} from ${listinterf}"
+	    continue
+	}
+	
+	#create folder for this interferogram
+	interfdir=`mktemp -d ${procdir}/DIF_INT_XXXXX`
+	
+	if [ -z "${interfdir}" ]; then
+	    continue
+	fi
+
+	#TO-DO read ML and under from properties
+	local mastergeo=${procdir}/DAT/GEOSAR/${interflist[0]}.geosar_ext
+	local slavegeo=${procdir}/DAT/GEOSAR/${interflist[1]}.geosar_ext
+	local masterci2=${procdir}/GEO_CI2_EXT_LIN/geo_${interflist[0]}_${smorb}.ci2
+	local slaveci2=${procdir}/GEO_CI2_EXT_LIN/geo_${interflist[1]}_${smorb}.ci2
+	demdesc="${procdir}/DAT/dem.dat"
+	master=${interflist[0]}
+	slave=${interflist[1]}
+
+	interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=${mlaz} --mlaz=1 --mlran=1  --winazi=${mlran} --winran=${azunder} --ranunder=${rnunder} --demdesc=${procdir}/DAT/dem.dat --coh --amp --dir="${interfdir}" --outdir="${interfdir}" --tmpdir=${procdir}/TEMP --ortho --orthodir="${interfdir}" --nobort --noran --noinc  > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}.log 2<&1
+	local status=$?
+	[ $status -ne 0 ] && {
+	    ciop-log "ERROR" "Generation of interferogram ${interflist[0]} - ${interflist[1]} Failed"
+	    continue
+	}
+	
+	#ortho of the coherence
+	ortho.pl --geosar=${smgeo} --in="${interfdir}/coh_${master}_${slave}_ml11.rad" --demdesc="${demdesc}" --tag="coh_${master}_${slave}_ml11" --odir="${interfdir}"   >> "${procdir}"/log/coh_ortho_${master}_${slave}.log 2<&1
+
+	#create geotiff
+	ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --mask --alpha="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --colortbl=BLUE-RED  --demdesc="${demdesc}" --outfile="${interfdir}/pha_${master}_${slave}_ortho.tiff" > ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
+	ortho2geotiff.pl --ortho="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --demdesc="${demdesc}"  --colortbl=BLACK-WHITE  --outfile="${interfdir}/amp_${master}_${slave}_ortho.tiff" > ${procdir}/log/amp_ortho_${master}_${slave}.log 2<&1
+	ortho2geotiff.pl --ortho="${interfdir}/coh_${master}_${slave}_ml11_ortho.rad" --demdesc="${demdesc}" --outfile="${interfdir}/coh_${master}_${slave}_ortho.tiff" >> ${procdir}/log/coh_ortho_${master}_${slave}.log 2<&1
+	
+	#create_pngs_from_tif "${result}"
+	for f in `find ${interfdir} -name "*.tiff"`; do 
+	    ciop-publish -m "${f}"
+	done
+
+	ciop-log "INFO" "Generation of interferogram ${interflist[0]} - ${interflist[1]} successful"
+	rm -rf "${interfdir}" > /dev/null 2<&1
+	
+    done < <(cat ${listinterf} | awk '{print $1" "$2}')
+
+    
+
+    
+
+    return ${SUCCESS}
 }
