@@ -854,8 +854,9 @@ function generate_ortho_interferograms()
 	ortho.pl --geosar=${smgeo} --in="${interfdir}/amp_${master}_${slave}_ml11.rad" --demdesc="${demdesc}" --tag="amp_${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP  >> "${procdir}"/log/amp_ortho_${master}_${slave}.log 2<&1
 
 	#create geotiff
-	ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --mask --alpha="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --colortbl=BLUE-RED  --demdesc="${demdesc}" --outfile="${interfdir}/pha_${master}_${slave}_ortho.tiff"  --tmpdir=${procdir}/TEMP  > ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
-	ortho2geotiff.pl --ortho="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --demdesc="${demdesc}"  --colortbl=BLACK-WHITE  --outfile="${interfdir}/amp_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  > ${procdir}/log/amp_ortho_${master}_${slave}.log 2<&1
+	ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --mask --alpha="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --colortbl=BLUE-RED  --demdesc="${demdesc}" --outfile="${interfdir}/pha_${master}_${slave}_ortho_rgb.tiff"  --tmpdir=${procdir}/TEMP  > ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
+	ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --mask --alpha="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --colortbl=BLACK-WHITE  --demdesc="${demdesc}" --outfile="${interfdir}/pha_${master}_${slave}_ortho.tiff"  --tmpdir=${procdir}/TEMP  > ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
+	ortho2geotiff.pl --ortho="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --demdesc="${demdesc}"  --colortbl=BLACK-WHITE --mask   --outfile="${interfdir}/amp_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  > ${procdir}/log/amp_ortho_${master}_${slave}.log 2<&1
 	ortho2geotiff.pl --ortho="${interfdir}/coh_${master}_${slave}_ml11_ortho.rad" --demdesc="${demdesc}" --outfile="${interfdir}/coh_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/coh_ortho_${master}_${slave}.log 2<&1
 	
 	#create_pngs_from_tif "${result}"
@@ -863,6 +864,7 @@ function generate_ortho_interferograms()
 	    ciop-publish -m "${f}"
 	    create_pngs_from_tif "${f}"
 	done
+	
 	
 	for f in `find "${interfdir}" -iname "*.png" -print -o -iname "*.pngw" -print`;do
 	    ciop-publish -m "$f"
