@@ -110,12 +110,17 @@ function main()
 
     mv "${serverdir}" "${pubdir}"
     serverdir="${pubdir}"
+
+    #
+    local publish_intermediate_flag=`ciop-getparam publish_intermediate`
     
+    if [[ "${publish_intermediate_flag}" == "true"  ]]; then
        #publish data
-    ciop-publish -a -r "${pubdir}" || {
-	ciop-log "ERROR" "Failed to publish folder ${pubdir}"
-	return ${ERRGENERIC}
-    }
+	ciop-publish -a -r "${pubdir}" || {
+	    ciop-log "ERROR" "Failed to publish folder ${pubdir}"
+	    return ${ERRGENERIC}
+	}
+    fi
 
     #prepare fastvel config
     #fastvelconf=$(generate_fast_vel_conf)

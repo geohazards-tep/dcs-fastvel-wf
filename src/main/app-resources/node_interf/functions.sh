@@ -849,16 +849,23 @@ function generate_ortho_interferograms()
 	}
 	
 	#ortho of the coherence
-	ortho.pl --geosar=${smgeo} --in="${interfdir}/coh_${master}_${slave}_ml11.rad" --demdesc="${demdesc}" --tag="coh_${master}_${slave}_ml11" --odir="${interfdir}"   >> "${procdir}"/log/coh_ortho_${master}_${slave}.log 2<&1
+	ortho.pl --geosar=${smgeo} --in="${interfdir}/coh_${master}_${slave}_ml11.rad" --demdesc="${demdesc}" --tag="coh_${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP   >> "${procdir}"/log/coh_ortho_${master}_${slave}.log 2<&1
+	#ortho of the amplitude
+	ortho.pl --geosar=${smgeo} --in="${interfdir}/amp_${master}_${slave}_ml11.rad" --demdesc="${demdesc}" --tag="amp_${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP  >> "${procdir}"/log/amp_ortho_${master}_${slave}.log 2<&1
 
 	#create geotiff
-	ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --mask --alpha="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --colortbl=BLUE-RED  --demdesc="${demdesc}" --outfile="${interfdir}/pha_${master}_${slave}_ortho.tiff" > ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
-	ortho2geotiff.pl --ortho="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --demdesc="${demdesc}"  --colortbl=BLACK-WHITE  --outfile="${interfdir}/amp_${master}_${slave}_ortho.tiff" > ${procdir}/log/amp_ortho_${master}_${slave}.log 2<&1
-	ortho2geotiff.pl --ortho="${interfdir}/coh_${master}_${slave}_ml11_ortho.rad" --demdesc="${demdesc}" --outfile="${interfdir}/coh_${master}_${slave}_ortho.tiff" >> ${procdir}/log/coh_ortho_${master}_${slave}.log 2<&1
+	ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --mask --alpha="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --colortbl=BLUE-RED  --demdesc="${demdesc}" --outfile="${interfdir}/pha_${master}_${slave}_ortho.tiff"  --tmpdir=${procdir}/TEMP  > ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
+	ortho2geotiff.pl --ortho="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --demdesc="${demdesc}"  --colortbl=BLACK-WHITE  --outfile="${interfdir}/amp_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  > ${procdir}/log/amp_ortho_${master}_${slave}.log 2<&1
+	ortho2geotiff.pl --ortho="${interfdir}/coh_${master}_${slave}_ml11_ortho.rad" --demdesc="${demdesc}" --outfile="${interfdir}/coh_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/coh_ortho_${master}_${slave}.log 2<&1
 	
 	#create_pngs_from_tif "${result}"
 	for f in `find ${interfdir} -name "*.tiff"`; do 
 	    ciop-publish -m "${f}"
+	    create_pngs_from_tif "${f}"
+	done
+	
+	for f in `find "${interfdir}" -iname "*.png" -print -o -iname "*.pngw" -print`;do
+	    ciop-publish -m "$f"
 	done
 
 	ciop-log "INFO" "Generation of interferogram ${interflist[0]} - ${interflist[1]} successful"
