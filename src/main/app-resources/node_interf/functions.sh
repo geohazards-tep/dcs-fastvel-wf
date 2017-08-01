@@ -841,7 +841,7 @@ function generate_ortho_interferograms()
 	master=${interflist[0]}
 	slave=${interflist[1]}
 
-	interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=${mlaz} --mlaz=1 --mlran=1  --winazi=${mlran} --winran=${azunder} --ranunder=${rnunder} --demdesc=${procdir}/DAT/dem.dat --coh --amp --dir="${interfdir}" --outdir="${interfdir}" --tmpdir=${procdir}/TEMP --ortho --orthodir="${interfdir}" --nobort --noran --noinc  > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}.log 2<&1
+	interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=1 --mlran=1  --winazi=${mlaz} --winran=${mlran}  --demdesc=${procdir}/DAT/dem.dat --coh --amp --dir="${interfdir}" --outdir="${interfdir}" --tmpdir=${procdir}/TEMP --ortho --orthodir="${interfdir}" --nobort --noran --noinc  > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}.log 2<&1
 	local status=$?
 	[ $status -ne 0 ] && {
 	    ciop-log "ERROR" "Generation of interferogram ${interflist[0]} - ${interflist[1]} Failed"
