@@ -80,28 +80,58 @@ function main()
 
     #get aoi string definition
     import_aoi_def_from_node_import "${serverdir}" "${mastertag}" "${wkid}"
-    
+
     ciop-log  "INFO"  "Data ready for interf generation"
-    generate_interferograms "${serverdir}" "${mastertag}" || {
+    
+
+    local mode=`ciop-getparam processing_mode`
+
+    if [[ "$mode" == "IFG" ]]; then
+	generate_ortho_interferograms "${serverdir}" "${mastertag}" || {
+	ciop-log "ERROR" "Error generating interferograms"
+	return ${ERRGENERIC}
+    }
+    else
+	generate_interferograms "${serverdir}" "${mastertag}" || {
 	ciop-log "ERROR" "Error generating interferograms"
 	return ${ERRGENERIC}
     }
 
+    fi
+
+    
+    
     #cleanup node_coreg node
     node_cleanup "${wkid}" "node_coreg"
 
-    #publish data
 
     #rename processing folder
     local pubdir=${TMPDIR}/INSAR_PROCESSING
+
     mv "${serverdir}" "${pubdir}"
     serverdir="${pubdir}"
 
-    ciop-publish -a -r "${pubdir}" || {
-	ciop-log "ERROR" "Failed to publish folder ${pubdir}"
-	return ${ERRGENERIC}
-}
+    #
+    local publish_intermediate_flag=`ciop-getparam publish_intermediate`
+    
+    if [[ "${publish_intermediate_flag}" == "true"  ]]; then
+       #publish data
+	ciop-publish -a -r "${pubdir}" || {
+	    ciop-log "ERROR" "Failed to publish folder ${pubdir}"
+	    return ${ERRGENERIC}
+	}
+    fi
 
+    #prepare fastvel config
+    #fastvelconf=$(generate_fast_vel_conf)
+
+
+    if [[ "$mode" == "MTA" ]]; then
+        generate_fast_vel_conf "${pubdir}"
+        execute_fast_vel "${TMPDIR}" "${pubdir}"
+        publish_final_results_mta "${pubdir}/output_fastvel/Final_Results"
+    fi
+ 
     return ${SUCCESS}
 }
 

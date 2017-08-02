@@ -24,10 +24,10 @@
     <jobTemplate id="job_selection">
       <streamingExecutable>/application/node_selection/run.sh</streamingExecutable>
       <defaultParameters>
-	<parameter id="btemp_max" title="Maximum Temporal Baseline [days]" abstract="Maximum time interval for interferogram selection" scope="runtime" minOccurs="0" maxOccurs="1" />
-	<parameter id="bperp_max" title="Maximum Perpendicular Baseline [meters]" abstract="Maximum perpendicular baseline" scope="runtime" minOccurs="0" maxOccurs="1" />
-	<parameter id="dopdiff_max" title="Maximum Doppler Difference [Hz]" abstract="Maximum doppler difference" scope="runtime" minOccurs="0" maxOccurs="1" />
-	
+	    <parameter id="btemp_max" title="Maximum Temporal Baseline [days]" abstract="Maximum time interval for interferogram selection" scope="runtime" minOccurs="0" maxOccurs="1">365</parameter>
+        <parameter id="bperp_max" title="Maximum Perpendicular Baseline [m]" abstract="Maximum perpendicular baseline" scope="runtime" minOccurs="0" maxOccurs="1">400</parameter>
+        <parameter id="dopdiff_max" title="Maximum Doppler Difference [Hz]" abstract="Maximum doppler difference" scope="runtime" minOccurs="0" maxOccurs="1">1000</parameter>
+	<parameter id="dopimg_max" title="Maximum Doppler Centroid [Hz]" abstract="Maximum Doppler Centroid [Hz]" scope="runtime" minOccurs="0" maxOccurs="1">2000</parameter>
       </defaultParameters>
       <defaultJobconf>       
 	<property id="mapred.map.max.attempts">1</property>
@@ -44,6 +44,22 @@
     </jobTemplate>
     <jobTemplate id="job_interf">
       <streamingExecutable>/application/node_interf/run.sh</streamingExecutable>
+      <defaultParameters>
+      	<parameter id="ref_point_lat" title="Reference Point Lattitude [deg]" abstract="Reference Point Lattitude" scope="runtime" minOccurs="0" maxOccurs="1"></parameter>
+		<parameter id="ref_point_lon" title="Reference Point Longitude [deg]" abstract="Reference Point Longitude" scope="runtime" minOccurs="0" maxOccurs="1"></parameter>
+		<parameter id="processing_mode" title="Processing Mode" abstract="Processing Mode" scope="runtime" minOccurs="0" maxOccurs="1">
+			<options>
+				<option>MTA</option>
+				<option>IFG</option>
+				<default>MTA</default>
+			</options>
+		</parameter>
+        
+<!--         <parameter id="Goldstein_Weight" title="Goldstein Weight" abstract="Goldstein Weight" scope="runtime" minOccurs="0" maxOccurs="1">0.5</parameter> -->
+		<parameter id="Coh_Threshold" title="Coherence Threshold" abstract="Coherence Threshold" scope="runtime" minOccurs="0" maxOccurs="1">0.5</parameter>
+        <parameter id="aps_smoothing" title="APS Correlation Distance [m]" abstract="APS Correlation Distance [m]" scope="runtime" minOccurs="0" maxOccurs="1">3000</parameter>
+	<parameter id="publish_intermediate"  title="Publish Processing Intermediate Files" abstract="Keep Processing Intermediate Files" scope="test">false</parameter>
+      </defaultParameters>
       <defaultJobconf>       
 	<property id="mapred.map.max.attempts">1</property>
 	<property id="ciop.job.max.tasks">1</property>
@@ -53,7 +69,7 @@
 
   </jobTemplates>
 
-    <workflow id="fastvel" title="FASTVEL" abstract="description" >
+    <workflow id="fastvel" title="FASTVEL" abstract="FASTVEL algorithm has been developed by TRE-Altamira for generating differential interferograms or PSI-based mean displacement velocity maps from a set of Sentinel-1 or ASAR images" >
           <workflowVersion>1.0</workflowVersion>
 	  <node id="node_import">
 	    <job id="job_import" />

@@ -31,6 +31,7 @@ export LM_LICENSE_FILE=1700@idl.terradue.int
 export btempmax=`ciop-getparam btemp_max`
 export bperpmax=`ciop-getparam bperp_max`
 export dopdiffmax=`ciop-getparam dopdiff_max`
+export dopimgmax=`ciop-getparam dopimg_max`
 
 #main
 function main()
