@@ -5,15 +5,15 @@
 
 	<groupId>com.tre-altamira</groupId>
 	<!-- change me -->
-	<artifactId>gep-spn-pre</artifactId>
+	<artifactId>dcs-fastvel-wf</artifactId>
 	<packaging>rpm</packaging>
 	<description>FASTVEL algorithm has been developed by TRE-Altamira for generating differential interferograms or PSI-based mean displacement velocity maps from a set of Sentinel-1 or ASAR images</description>
 	<version>1.0</version>
 
 	<scm>
-		<connection>scm:git:git@github.com:pordoqui/gep-spn-pre.git</connection>
-		<developerConnection>scm:git:git@github.com:pordoqui/gep-spn-pre.git</developerConnection>
-		<url>https://github.com/pordoqui/gep-spn-pre</url>
+		<connection>scm:git:git@github.com:pordoqui/dcs-fastvel-wf.git</connection>
+		<developerConnection>scm:git:git@github.com:pordoqui/dcs-fastvel-wf.git</developerConnection>
+		<url>https://github.com/pordoqui/dcs-fastvel-wf</url>
 		<tag>HEAD</tag>
 	</scm>
 

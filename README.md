@@ -1,2 +1,2 @@
-# gep-spn-pre
-A gep workflow performing the "pre spn" steps
+# dcs-fastvel-wf
+A gep workflow performing for the fastvel application 
