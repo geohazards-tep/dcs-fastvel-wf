@@ -3,11 +3,11 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>com.terradue.ciop.app</groupId>
+	<groupId>com.tre-altamira</groupId>
 	<!-- change me -->
 	<artifactId>gep-spn-pre</artifactId>
 	<packaging>rpm</packaging>
-	<description>Workflow for pre SPN processing based on diapason</description>
+	<description>FASTVEL algorithm has been developed by TRE-Altamira for generating differential interferograms or PSI-based mean displacement velocity maps from a set of Sentinel-1 or ASAR images</description>
 	<version>1.0</version>
 
 	<scm>
@@ -122,6 +122,18 @@
 					  <require>diapason</require>
 					  <require>interf_selection</require>
 					  <require>fast_vel</require>
+					  <require>xmlstarlet</require>
+					  <require>lftp</require>
+					  <require>sqlite</require>
+					  <require>jday</require>
+					  <require>gdal</require>
+					  <require>gdal-python</require>
+					  <require>idl</require>
+					  <require>shapelib</require>
+					  <require>perl-LockFile-Simple</require>
+					  <require>perl-DateTime</require>
+					  <require>perl-XML-LibXML</require>
+					  <require>perl-DBI</require>
 					</requires>
 					<needarch>true</needarch>
 				</configuration>
