@@ -1975,3 +1975,91 @@ function create_pngs_from_tif () {
 
   return ${SUCCESS}
 }
+
+
+# Public: verify the number of images
+# in the processing
+# 
+# Takes the application properties file , number of images
+# and processing mode as input
+# 
+#
+# $1 - the application properties file
+# $2 - a number representing the number of images in the processing
+# $3 - the processing mode ("MTA" or "IFG")
+#
+# Examples
+#
+#   number_of_images_check prperties_file nimages "MTA"
+#
+# Returns $SUCCESS when the number of images is suitable
+# for the processing
+#   
+function number_of_images_check() {
+    
+    if [ $# -lt 3 ]; then
+	return ${ERRMISSING}
+    fi
+
+    if [ -z "`type -p xmlstarlet`" ]; then
+	ciop-log "ERROR" "Missing binary xmlstarlet"
+	return $ERRMISSING
+    fi
+
+    local number_of_images="$1"
+    local properties_file="$2"
+    local processing_mode="$3"
+
+    minima=$(cat "${properties_file}" | xmlstarlet sel -t -v "//properties/minIma")
+    
+    if [ "$processing_mode" == "MTA" ]; then
+	if [ ${number_of_images} -lt $minima  ]; then
+	    ciop-log "ERROR" "Too few input images : ${number_of_images}. Minimum required : ${minima}"
+	    return ${ERRGENERIC}
+	fi
+    fi
+
+    return $SUCCESS
+}
+
+
+# Public: read a value from the global parameters file
+# 
+# 
+# Takes the parameter name and the workflow id as input 
+#
+# $1 - the parameter name
+# $2 - workflow id
+#
+# Examples
+#
+#   get_global_parameter "processing_mode" Wkid
+#
+# Returns $SUCCESS when the parameter was found 
+# 
+#   
+
+function get_global_parameter()
+{
+    if [ $# -lt 2 ]; then
+	echo ""
+	return $ERRMISSING
+    fi
+    
+    local param_name="$1"
+    local wkid="$2"
+    local global_param_file=`ciop-browseresults -r "${wkid}" -j node_incheck | grep -m1 global`
+    if [ -z "${global_param_file}" ]; then
+	ciop-log "ERROR" "Missing global parameters file in node_incheck"
+	return $ERRMISSING
+    fi
+    
+    local value=`hadoop dfs -cat ${global_param_file} | cut -f2 -d "="`
+    if [ -z "${value}" ]; then
+	ciop-log "ERROR" "Parameter ${param_name} not found in ${global_param_file}"
+	return $ERRMISSING
+    fi
+    
+    echo $value
+    return $SUCCESS
+}

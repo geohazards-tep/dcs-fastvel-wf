@@ -45,6 +45,6 @@
 </sensor>
 <geomAzUnderSampling>2</geomAzUnderSampling>
 <geomRnUnderSampling>2</geomRnUnderSampling>
-<minIma>20</minIma>
+<minIma>25</minIma>
 </properties>
 

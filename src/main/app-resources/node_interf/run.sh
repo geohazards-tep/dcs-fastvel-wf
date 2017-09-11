@@ -84,8 +84,10 @@ function main()
     ciop-log  "INFO"  "Data ready for interf generation"
     
 
-    local mode=`ciop-getparam processing_mode`
-
+    local mode=$(get_global_parameter "processing_mode" "${wkid}") || {
+	ciop-log "WARNING" "Global parameter \"processing_mode\" not found. Defaulting to \"MTA\""
+    }
+    
     if [[ "$mode" == "IFG" ]]; then
 	generate_ortho_interferograms "${serverdir}" "${mastertag}" || {
 	ciop-log "ERROR" "Error generating interferograms"
