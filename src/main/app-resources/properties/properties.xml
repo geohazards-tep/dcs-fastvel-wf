@@ -45,6 +45,8 @@
 </sensor>
 <geomAzUnderSampling>2</geomAzUnderSampling>
 <geomRnUnderSampling>2</geomRnUnderSampling>
+<orthoPixelSpacingX>0.000416666666500</orthoPixelSpacingX>
+<orthoPixelSpacingY>-0.000416666666500</orthoPixelSpacingY>
 <minIma>25</minIma>
 </properties>
 
