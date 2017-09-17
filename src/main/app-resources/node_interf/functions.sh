@@ -170,7 +170,22 @@ function import_dem_from_node_selection()
     fi
 	
     done
- 
+
+    #import AOI
+    local aoidir=${procdir}/AOI
+    mkdir -p "${aoidir}"
+    local remoteaoidir=`ciop-browseresults -j node_selection -r ${wkid} | grep AOI`
+    
+    if [ -n "${remoteaoidir}" ]; then
+	for file in `hadoop dfs -lsr ${remoteaoidir} | awk '{print $8}'`; do
+	    hadoop dfs -copyToLocal ${file} ${procdir}/AOI
+	    status=$?
+	    if [ $status -ne 0 ]; then
+		ciop-log "ERROR" "Failed to import ${file}"
+	    fi
+	done
+    fi
+
     return ${SUCCESS}
 }
 
@@ -815,6 +830,23 @@ function generate_ortho_interferograms()
     	roiopt="--roi=${roi}"
     }
     
+    local aoishape="${procdir}/AOI/AOI.shp"
+
+    if [ ! -e "${aoishape}" ]; then
+	aoishape=""
+    fi
+
+    local ortho_dem=$(get_dem_for_ortho "${procdir}/DAT/dem.tif" "${procdir}" ${_WF_ID} "${aoishape}")
+    
+    #ciop-log "ortho dem test : -->${ortho_dem}<--- `ls ${ortho_dem}`"
+    
+
+    #local ortho_dem=""
+
+    if [ -z "${ortho_dem}" ]; then
+	ortho_dem="${procdir}/DAT/dem.dat"
+    fi
+
     #iterate over list interf
     while read data;do
 	declare -a interflist
@@ -841,23 +873,34 @@ function generate_ortho_interferograms()
 	master=${interflist[0]}
 	slave=${interflist[1]}
 
-	interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=1 --mlran=1  --winazi=${mlaz} --winran=${mlran}  --demdesc=${procdir}/DAT/dem.dat --coh --amp --dir="${interfdir}" --outdir="${interfdir}" --tmpdir=${procdir}/TEMP --ortho --orthodir="${interfdir}" --nobort --noran --noinc  > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}.log 2<&1
+	interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=1 --mlran=1  --winazi=${mlaz} --winran=${mlran}  --demdesc=${procdir}/DAT/dem.dat --coh --amp --dir="${interfdir}" --outdir="${interfdir}" --tmpdir=${procdir}/TEMP  --orthodir="${interfdir}" --nobort --noran --noinc  > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}.log 2<&1
 	local status=$?
 	[ $status -ne 0 ] && {
 	    ciop-log "ERROR" "Generation of interferogram ${interflist[0]} - ${interflist[1]} Failed"
 	    continue
 	}
 	
+	find ${procdir}/ORB -iname "*${interflist[0]}*.orb" -print -o -iname "*${interflist[1]}*.orb" -print | alt_ambig.pl --geosar=${smgeo}  -o ${interfdir}/AMBIG.DAT > /dev/null 2<&1
+
+	#ortho of the phase
+	ortho.pl --geosar=${smgeo} --in="${interfdir}/pha_${master}_${slave}_ml11.rad" --demdesc="${ortho_dem}" --cplx  --tag="${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP   >> "${procdir}"/log/pha_ortho_${master}_${slave}.log 2<&1
 	#ortho of the coherence
-	ortho.pl --geosar=${smgeo} --in="${interfdir}/coh_${master}_${slave}_ml11.rad" --demdesc="${demdesc}" --tag="coh_${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP   >> "${procdir}"/log/coh_ortho_${master}_${slave}.log 2<&1
+	ortho.pl --geosar=${smgeo} --in="${interfdir}/coh_${master}_${slave}_ml11.rad" --demdesc="${ortho_dem}" --tag="coh_${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP   >> "${procdir}"/log/coh_ortho_${master}_${slave}.log 2<&1
 	#ortho of the amplitude
-	ortho.pl --geosar=${smgeo} --in="${interfdir}/amp_${master}_${slave}_ml11.rad" --demdesc="${demdesc}" --tag="amp_${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP  >> "${procdir}"/log/amp_ortho_${master}_${slave}.log 2<&1
+	ortho.pl --geosar=${smgeo} --in="${interfdir}/amp_${master}_${slave}_ml11.rad" --demdesc="${ortho_dem}" --tag="amp_${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP  >> "${procdir}"/log/amp_ortho_${master}_${slave}.log 2<&1
 
 	#create geotiff
-	ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --mask --alpha="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --colortbl=BLUE-RED  --demdesc="${demdesc}" --outfile="${interfdir}/pha_${master}_${slave}_ortho_rgb.tiff"  --tmpdir=${procdir}/TEMP  > ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
-	ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --mask --alpha="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --colortbl=BLACK-WHITE  --demdesc="${demdesc}" --outfile="${interfdir}/pha_${master}_${slave}_ortho.tiff"  --tmpdir=${procdir}/TEMP  > ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
-	ortho2geotiff.pl --ortho="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --demdesc="${demdesc}"  --colortbl=BLACK-WHITE --mask   --outfile="${interfdir}/amp_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  > ${procdir}/log/amp_ortho_${master}_${slave}.log 2<&1
-	ortho2geotiff.pl --ortho="${interfdir}/coh_${master}_${slave}_ml11_ortho.rad" --demdesc="${demdesc}" --outfile="${interfdir}/coh_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/coh_ortho_${master}_${slave}.log 2<&1
+	ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --mask --alpha="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --colortbl=BLUE-RED  --demdesc="${ortho_dem}" --outfile="${interfdir}/pha_${master}_${slave}_ortho_rgb.tiff"  --tmpdir=${procdir}/TEMP  >> ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
+	ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --mask --alpha="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --colortbl=BLACK-WHITE  --demdesc="${ortho_dem}" --outfile="${interfdir}/pha_${master}_${slave}_ortho.tiff"  --tmpdir=${procdir}/TEMP  >> ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
+	ortho2geotiff.pl --ortho="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --demdesc="${ortho_dem}"  --colortbl=BLACK-WHITE --mask   --outfile="${interfdir}/amp_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/amp_ortho_${master}_${slave}.log 2<&1
+	ortho2geotiff.pl --ortho="${interfdir}/coh_${master}_${slave}_ml11_ortho.rad" --demdesc="${ortho_dem}" --outfile="${interfdir}/coh_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/coh_ortho_${master}_${slave}.log 2<&1
+
+	if [ ! -e "${interfdir}/pha_${master}_${slave}_ml11_ortho.pha" ]; then
+	    ciop-log "ERROR" "Failed to generate ortho interferogram"
+	    msg=`cat "${procdir}"/log/pha_ortho_${master}_${slave}.log`
+	    ciop-log "INFO" "${msg}"
+	fi
+	
 	
 	#create_pngs_from_tif "${result}"
 	for f in `find ${interfdir} -name "*.tiff"`; do 
@@ -865,8 +908,21 @@ function generate_ortho_interferograms()
 	    create_pngs_from_tif "${f}"
 	done
 	
-	
-	for f in `find "${interfdir}" -iname "*.png" -print -o -iname "*.pngw" -print`;do
+	wkt=$(tiff2wkt "${interfdir}/coh_${master}_${slave}_ortho.tiff")
+	echo ${wkt} > ${interfdir}/wkt.txt
+
+	create_interf_properties "${interfdir}/coh_${master}_${slave}_ortho.tiff" "Interferometric Coherence" "${interfdir}" "${mastergeo}" "${slavegeo}"
+	create_interf_properties "${interfdir}/coh_${master}_${slave}_ortho.png" "Interferometric Coherence" "${interfdir}" "${mastergeo}" "${slavegeo}"
+	create_interf_properties "${interfdir}/amp_${master}_${slave}_ortho.tiff" "Interferometric Amplitude" "${interfdir}" "${mastergeo}" "${slavegeo}"
+	create_interf_properties "${interfdir}/amp_${master}_${slave}_ortho.png" "Interferometric Amplitude" "${interfdir}" "${mastergeo}" "${slavegeo}"
+	create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho.tiff" "Interferometric Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
+	create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho.png" "Interferometric Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
+	create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho_rgb.tiff" "Interferometric Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
+	create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho_rgb.png" "Interferometric Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"	
+
+	#
+
+	 for f in `find "${interfdir}" -iname "*.png" -print -o -iname "*.pngw" -print -o -iname "*.properties" -print`;do
 	    ciop-publish -m "$f"
 	done
 
@@ -880,4 +936,80 @@ function generate_ortho_interferograms()
     
 
     return ${SUCCESS}
+}
+
+function get_dem_for_ortho()
+{
+ 
+    if  [ $# -lt 3 ]; then
+	return $ERRMISSING
+    fi
+    
+    
+    local indemtif="$1"
+    local serverdir="$2"
+    local wkid="$3"
+    local shapefile=""
+
+    if [ $# -ge 4 ]; then
+	shapefile="$4"
+    fi
+
+    local dir=${serverdir}/DEM_FOR_ORTHO/
+
+    mkdir -p ${dir} || {
+	echo "" 
+	return $ERRPERM
+    }
+
+    if [ -n "${shapefile}" ] && [ -e "${shapefile}" ] && [ -e "/opt/gdalcrop/bin/gdalcrop" ]; then
+	local cropped=${dir}/dem_cropped.tif
+	ciop-log "INFO" "Cropping DEM using AOI ${shapefile}"
+	/opt/gdalcrop/bin/gdalcrop "${indemtif}" "${shapefile}" "${cropped}" > /tmp/gdalcrop.txt 2<&1
+	chmod 777 /tmp/gdalcrop.txt > /dev/null 2<&1
+	local statuscrop=$?
+	if [ $statuscrop -eq 0 ]; then
+	    ciop-log "INFO" "DEM was successfully cropped"
+	    indemtif=${cropped}
+	fi
+    fi
+
+
+    local mode=$(get_global_parameter "processing_mode" "${wkid}") || {
+	ciop-log "WARNING" "Global parameter \"processing_mode\" not found. Defaulting to \"MTA\""
+    }
+    
+    if [ "$mode" == "IFG" ]; then
+	local tifout=${dir}/dem_for_ortho.tif
+	
+	if [ -z "${PROPERTIES_FILE}" ]; then
+	    return $ERRMISSING
+	fi
+	
+	local pixelSpacingX=""
+	local pixelSpacingY=""
+
+	read_ortho_pixel_spacing "${PROPERTIES_FILE}" XpixelSpacing YpixelSpacing || {
+	    return $ERRMISSING
+	}
+	gdalwarp -tr ${XpixelSpacing} ${YpixelSpacing}  -ot Int16 -r bilinear ${indemtif} ${tifout} > /dev/null 2<&1
+	
+	if [ -e "${tifout}" ]; then
+	    tifdemimport.pl --intif="${tifout}" --outdir="${dir}" > "${serverdir}/orthodemimport.log" 2<&1
+	    if [ -e "${dir}/dem.dat" ]; then
+		echo "${dir}/dem.dat"
+		return $SUCCESS
+	    fi
+	else
+	    echo ""
+	    return $ERRGENRIC
+	fi
+    else
+	echo "${serverdir}/DAT/dem.dat"
+	return $SUCCESS
+    fi
+
+
+    return $SUCCESS
+    
 }
