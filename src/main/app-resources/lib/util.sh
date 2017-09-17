@@ -2063,3 +2063,148 @@ function get_global_parameter()
     echo $value
     return $SUCCESS
 }
+
+function read_ortho_pixel_spacing()
+{
+    if [ $# -lt 3 ]; then
+	return $ERRMISSING
+    fi
+
+    local properties="$1"
+
+   [ -z "`type -p xmlstarlet`" ] && {
+	ciop-log "ERROR" "Missing xmlstarlet utility"
+	return ${ERRMISSING}
+    }
+
+   local pixelSpacingX=`cat ${properties} | xmlstarlet sel -t -v "//properties/orthoPixelSpacingX"`
+   
+   if [ -z "${pixelSpacingX}" ]; then
+       ciop-log "ERROR" "Unable to read orthoPixelSpacingX from ${properties}"
+       return $ERRMISSING
+   fi
+
+   local pixelSpacingY=`cat ${properties} | xmlstarlet sel -t -v "//properties/orthoPixelSpacingY"`
+   
+   if [ -z "${pixelSpacingY}" ]; then
+       ciop-log "ERROR" "Unable to read orthoPixelSpacingX from ${properties}"
+       return $ERRMISSING
+   fi
+ 
+   eval "$2=\"${pixelSpacingX}\""
+   eval "$3=\"${pixelSpacingY}\""
+   
+   return $SUCCESS
+}
+
+
+function create_interf_properties()
+{
+    if [ $# -lt 4 ]; then
+	echo "$FUNCNAME : usage:$FUNCNAME file description serverdir geosar"
+	return 1
+    fi
+
+    local inputfile=$1
+    local fbase=`basename ${inputfile}`
+    local description=$2
+    local serverdir=$3
+    local geosarm=$4
+    local geosars=""
+    if [ $# -ge 5 ]; then
+    geosars=$5
+    fi
+ 
+    if [ ! -e "${inputfile}" ]; then
+	ciop-log "INFO" "create_interf_properies:Missing file ${inputfile}"
+	return $ERRMISSING
+    fi
+   
+    local datestart=$(geosar_time "${geosarm}")
+    
+    local dateend=""
+    if [ -n "$geosars" ]; then
+	dateend=$(geosar_time "${geosars}")
+    fi
+
+    local propfile="${inputfile}.properties"
+    echo "title = DIAPASON InSAR Sentinel-1 TOPSAR(IW,EW) - ${description} - ${datestart} ${dateend}" > "${propfile}"
+    echo "Description = ${description}" >> "${propfile}"
+    local sensor=`grep -h "SENSOR NAME" "${geosarm}" | cut -b 40-1024 | awk '{print $1}'`
+    echo "Sensor\ Name = ${sensor}" >> "${propfile}"
+    local masterid=$(geosartag ${geosarm})
+    if [ -n "${masterid}" ]; then
+	echo "Master\ SLC\ Product = ${masterid}" >> "${propfile}"
+    fi 
+    local slaveid=$(geosartag ${geosars})
+    if [ -n "${slaveid}" ]; then
+	echo "Slave\ SLC\ Product = ${slaveid}" >> "${propfile}"
+    fi 
+
+    #look for 2jd utility to convert julian dates
+    if [ -n "`type -p j2d`"  ] && [ -n "${geosars}" ]; then
+	local jul1=`grep -h JULIAN "${geosarm}" | cut -b 40-1024 | sed 's@[^0-9]@@g'`
+	local jul2=`grep -h JULIAN "${geosars}" | cut -b 40-1024 | sed 's@[^0-9]@@g'`
+	if [ -n "${jul1}"  ] && [ -n "${jul2}" ]; then 
+	
+	    local dates=""
+	    for jul in `echo -e "${jul1}\n${jul2}" | sort -n`; do
+		local julday=`echo "2433283+${jul}" | bc -l`
+		local dt=`j2d ${julday} | awk '{print $1}'`
+		
+		dates="${dates} ${dt}"
+	    done
+	   
+	fi
+	echo "Observation\ Dates = $dates" >> "${propfile}"
+	
+	local timeseparation=`echo "$jul1 - $jul2" | bc -l`
+	if [ $timeseparation -lt 0 ]; then
+	    timeseparation=`echo "$timeseparation*-1" | bc -l`
+	fi
+	
+	if [ -n "$timeseparation" ]; then
+	    echo "Time\ Separation\ \(days\) = ${timeseparation}" >> "${propfile}"
+	fi
+    fi
+
+    local altambig="${serverdir}/AMBIG.DAT"
+    if [ -e "${altambig}" ] ; then
+	local info=($(grep -E "^[0-9]+" "${altambig}" | head -1))
+	if [  ${#info[@]} -ge 6 ]; then
+	    #write incidence angle
+	    echo "Incidence\ angle\ \(degrees\) = "${info[2]} >> "${propfile}"
+	    #write baseline
+	    local bas=`echo ${info[4]} | awk '{ if($1>=0) {print $1} else { print $1*-1} }'`
+	    echo "Baseline\ \(meters\) = ${bas}" >> "${propfile}"
+	else
+	    echo "INFO" "Invalid format for AMBIG.DAT file "
+	fi
+    else
+	echo "INFO" "Missing AMBIG.DAT file in ${serverdir}/"
+    fi 
+    
+    local satpass=`grep -h "SATELLITE PASS" "${geosarm}"  | cut -b 40-1024 | awk '{print $1}'`
+    
+    if [ -n "${satpass}" ]; then
+	echo "Orbit\ Direction = ${satpass}" >> "${propfile}"
+    fi
+
+    local publishdate=`date +'%B %d %Y' `
+    echo "Processing\ Date  = ${publishdate}" >> "${propfile}"
+    
+    local logfile=`ls ${serverdir}/ortho_amp.log`
+    if [ -e "${logfile}" ]; then
+	local resolution=`grep "du mnt" "${logfile}" | cut -b 15-1024 | sed 's@[^0-9\.]@\n@g' | grep [0-9] | sort -n | tail -1`
+	if [ -n "${resolution}" ]; then
+	    echo "Resolution\ \(meters\) = ${resolution}" >> "${propfile}"
+	fi
+    fi
+    
+    local wktfile="${serverdir}/wkt.txt"
+    
+    if [ -e "${wktfile}" ]; then
+	local wkt=`head -1 "${wktfile}"`
+	echo "geometry = ${wkt}" >> "${propfile}"
+    fi
+}
