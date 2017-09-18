@@ -14,6 +14,7 @@
       </defaultParameters>
       <defaultJobconf>       
 	<property id="mapred.map.max.attempts">1</property>
+	<property id="ciop.job.max.tasks">1</property>
       </defaultJobconf>
     </jobTemplate>
     <jobTemplate id="job_import">
