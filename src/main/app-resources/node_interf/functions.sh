@@ -894,7 +894,7 @@ function generate_ortho_interferograms()
 	ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --mask --alpha="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --colortbl=BLACK-WHITE  --demdesc="${ortho_dem}" --outfile="${interfdir}/pha_${master}_${slave}_ortho.tiff"  --tmpdir=${procdir}/TEMP  >> ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
 	ortho2geotiff.pl --ortho="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --demdesc="${ortho_dem}"  --colortbl=BLACK-WHITE --mask   --outfile="${interfdir}/amp_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/amp_ortho_${master}_${slave}.log 2<&1
 	ortho2geotiff.pl --ortho="${interfdir}/coh_${master}_${slave}_ml11_ortho.rad" --demdesc="${ortho_dem}" --outfile="${interfdir}/coh_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/coh_ortho_${master}_${slave}.log 2<&1
-
+	ln -s ${procdir}/log/amp_ortho_${master}_${slave}.log ${interfdir}/ortho_amp.log
 	if [ ! -e "${interfdir}/pha_${master}_${slave}_ml11_ortho.pha" ]; then
 	    ciop-log "ERROR" "Failed to generate ortho interferogram"
 	    msg=`cat "${procdir}"/log/pha_ortho_${master}_${slave}.log`
@@ -908,6 +908,8 @@ function generate_ortho_interferograms()
 	    create_pngs_from_tif "${f}"
 	done
 	
+	ortho2geotiff.pl --ortho="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --demdesc="${ortho_dem}"  --outfile="${interfdir}/amp_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/amp_ortho_${master}_${slave}.log 2<&1
+
 	wkt=$(tiff2wkt "${interfdir}/coh_${master}_${slave}_ortho.tiff")
 	echo ${wkt} > ${interfdir}/wkt.txt
 
@@ -922,7 +924,7 @@ function generate_ortho_interferograms()
 
 	#
 
-	 for f in `find "${interfdir}" -iname "*.png" -print -o -iname "*.pngw" -print -o -iname "*.properties" -print`;do
+	 for f in `find "${interfdir}" -iname "*.png" -print -o -iname "*.properties" -print`;do
 	    ciop-publish -m "$f"
 	done
 
