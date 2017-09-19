@@ -692,6 +692,14 @@ function publish_final_results_mta () {
   		ciop-log "ERROR" "Final results folder for mta not found"
 		return ${ERRMISSING}
 	fi
+
+	local ntifs=`ls ${pubdir}/*rgb.tif | wc -l`
+	
+	if [ $ntifs -eq 0 ]; then
+	    ciop-log "ERROR" "Geotiff results for mta not found"
+	    return ${ERRGENERIC}
+	fi
+
 	for result in `ls -1 $pubdir/*rgb.tif`; do
 	    create_pngs_from_tif "${result}"
 	    ciop-publish -m ${result}

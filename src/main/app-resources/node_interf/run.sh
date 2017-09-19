@@ -132,6 +132,12 @@ function main()
         generate_fast_vel_conf "${pubdir}"
         execute_fast_vel "${TMPDIR}" "${pubdir}"
         publish_final_results_mta "${pubdir}/output_fastvel/Final_Results"
+	local fvel_status=$?
+	if [ ${fvel_status} -ne 0 ]; then
+	    ciop-log "ERROR" "fastvel execution failed"
+	    ciop-publish -r "${pubdir}/output_fastvel"
+	    return ${fvel_status}
+	fi
     fi
  
     return ${SUCCESS}
