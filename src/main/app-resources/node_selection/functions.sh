@@ -224,6 +224,21 @@ function run_selection()
     
     echo ${smtag} > "${serverdir}/TEMP/SM.txt"
     
+    #
+    local dop_filtered=${serverdir}/TEMP/dop_filtered.txt
+    local list_interf=${serverdir}/TEMP/list_interf_auto.txt
+    local name_slc=${serverdir}/TEMP/name_slc_auto.txt
+    
+    if [ -e "${list_interf}" ] && [ -e "${name_slc}" ]; then
+	dopmax_remove.pl --nameslc="${name_slc}" --serverdir=${serverdir} --interflist=${list_interf} --tmpdir=${serverdir}/TEMP --dopmax=${DOPIMAGE_MAX_IN}
+	
+	local count_interf=`grep [0-9] ${list_interf} | wc -l`
+	if [ ${count_interf} -eq 0 ]; then
+	    ciop-log "ERROR" "Image doppler filtering results in no interferograms "
+	    return $ERRGENERIC
+	fi
+    fi
+
     return ${isstatus}
 }
 

@@ -134,6 +134,7 @@
 					  <require>perl-DateTime</require>
 					  <require>perl-XML-LibXML</require>
 					  <require>perl-DBI</require>
+					  <require>gdalcrop</require>
 					</requires>
 					<needarch>true</needarch>
 				</configuration>

@@ -90,6 +90,22 @@ function main()
 	return ${ERRGENERIC}
     }
 
+        #number of images check
+    local nameslc=${serverdir}/TEMP/name_slc_auto.txt
+    if [ -e "${nameslc}" ]; then 
+	local number_of_images=`cat ${nameslc} | wc -l`
+	local mode=$(get_global_parameter  "processing_mode" "${wkid}")
+	
+    
+	number_of_images_check ${number_of_images} "${PROPERTIES_FILE}"  ${mode} || {
+	    procCleanup
+	
+	    echo ""
+	    exit ${ERRGENERIC}
+	}
+	
+    fi
+    
     #publish results of interf_selection
     local pubdir="${serverdir}/MASTER_SELECTION"
     ln -s "${serverdir}/TEMP" "${pubdir}"
@@ -220,16 +236,6 @@ function main()
 	return ${ERRGENERIC}
     }
     
-    #number of images check
-    local number_of_images=`cat ${datasetlist} | wc -l`
-    local mode=$(get_global_parameter  "processing_mode" "${wkid}")
-    
-    number_of_images_check ${number_of_images} "${PROPERTIES_FILE}"  ${mode} || {
-	procCleanup
-	echo ""
-	exit ${ERRGENERIC}
-    }
-
 
     procCleanup
     echo ${smtag}
