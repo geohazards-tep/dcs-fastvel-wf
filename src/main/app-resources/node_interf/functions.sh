@@ -912,27 +912,28 @@ function generate_ortho_interferograms()
 	
 	#create_pngs_from_tif "${result}"
 	for f in `find ${interfdir} -name "*.tiff"`; do 
-	    ciop-publish -m "${f}"
 	    create_pngs_from_tif "${f}"
 	done
-	
-	ortho2geotiff.pl --ortho="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --demdesc="${ortho_dem}"  --outfile="${interfdir}/amp_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/amp_ortho_${master}_${slave}.log 2<&1
 
+	rm "${interfdir}/amp_${master}_${slave}_ortho.tiff"
+
+	ortho2geotiff.pl --ortho="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --demdesc="${ortho_dem}"  --outfile="${interfdir}/amp_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/amp_ortho_${master}_${slave}.log 2<&1
+	
 	wkt=$(tiff2wkt "${interfdir}/coh_${master}_${slave}_ortho.tiff")
 	echo ${wkt} > ${interfdir}/wkt.txt
 
 	create_interf_properties "${interfdir}/coh_${master}_${slave}_ortho.tiff" "Interferometric Coherence" "${interfdir}" "${mastergeo}" "${slavegeo}"
-	create_interf_properties "${interfdir}/coh_${master}_${slave}_ortho.png" "Interferometric Coherence" "${interfdir}" "${mastergeo}" "${slavegeo}"
+	create_interf_properties "${interfdir}/coh_${master}_${slave}_ortho.png" "Interferometric Coherence - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"
 	create_interf_properties "${interfdir}/amp_${master}_${slave}_ortho.tiff" "Interferometric Amplitude" "${interfdir}" "${mastergeo}" "${slavegeo}"
-	create_interf_properties "${interfdir}/amp_${master}_${slave}_ortho.png" "Interferometric Amplitude" "${interfdir}" "${mastergeo}" "${slavegeo}"
+	create_interf_properties "${interfdir}/amp_${master}_${slave}_ortho.png" "Interferometric Amplitude - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"
 	create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho.tiff" "Interferometric Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
-	create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho.png" "Interferometric Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
+	create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho.png" "Interferometric Phase - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"
 	create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho_rgb.tiff" "Interferometric Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
-	create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho_rgb.png" "Interferometric Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"	
+	create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho_rgb.png" "Interferometric Phase - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"	
 
 	#
 
-	 for f in `find "${interfdir}" -iname "*.png" -print -o -iname "*.properties" -print`;do
+	 for f in `find "${interfdir}" -iname "*.png" -print -o -iname "*.properties" -print -o -iname "*.tiff" -print`;do
 	    ciop-publish -m "$f"
 	done
 
