@@ -858,6 +858,11 @@ function generate_ortho_interferograms()
 	ortho_dem="${procdir}/DAT/dem.dat"
     fi
 
+    #psfilt factor
+    local psfiltx=`ciop-getparam psfiltx`
+    #unwrap option
+    local unwrap=`ciop-getparam unwrap`
+
     #iterate over list interf
     while read data;do
 	declare -a interflist
@@ -884,7 +889,7 @@ function generate_ortho_interferograms()
 	master=${interflist[0]}
 	slave=${interflist[1]}
 
-	interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=1 --mlran=1  --winazi=${mlaz} --winran=${mlran}  --demdesc=${procdir}/DAT/dem.dat --coh --amp --dir="${interfdir}" --outdir="${interfdir}" --tmpdir=${procdir}/TEMP  --orthodir="${interfdir}" --nobort --noran --noinc  > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}.log 2<&1
+	interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=1 --mlran=1  --winazi=${mlaz} --winran=${mlran}  --demdesc=${procdir}/DAT/dem.dat --coh --amp --dir="${interfdir}" --outdir="${interfdir}" --tmpdir=${procdir}/TEMP  --orthodir="${interfdir}" --nobort --noran --noinc --psfilt --psfiltx=${psfiltx}  > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}.log 2<&1
 	local status=$?
 	[ $status -ne 0 ] && {
 	    ciop-log "ERROR" "Generation of interferogram ${interflist[0]} - ${interflist[1]} Failed"
@@ -894,7 +899,7 @@ function generate_ortho_interferograms()
 	find ${procdir}/ORB -iname "*${interflist[0]}*.orb" -print -o -iname "*${interflist[1]}*.orb" -print | alt_ambig.pl --geosar=${smgeo}  -o ${interfdir}/AMBIG.DAT > /dev/null 2<&1
 
 	#ortho of the phase
-	ortho.pl --geosar=${smgeo} --in="${interfdir}/pha_${master}_${slave}_ml11.rad" --demdesc="${ortho_dem}" --cplx  --tag="${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP   >> "${procdir}"/log/pha_ortho_${master}_${slave}.log 2<&1
+	ortho.pl --geosar=${smgeo} --in="${interfdir}/psfilt_pha_${master}_${slave}_ml11.rad" --demdesc="${ortho_dem}" --cplx  --tag="${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP   >> "${procdir}"/log/pha_ortho_${master}_${slave}.log 2<&1
 	#ortho of the coherence
 	ortho.pl --geosar=${smgeo} --in="${interfdir}/coh_${master}_${slave}_ml11.rad" --demdesc="${ortho_dem}" --tag="coh_${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP   >> "${procdir}"/log/coh_ortho_${master}_${slave}.log 2<&1
 	#ortho of the amplitude
@@ -912,6 +917,46 @@ function generate_ortho_interferograms()
 	    ciop-log "INFO" "${msg}"
 	fi
 	
+	#unwrap
+	local unwmlaz=` echo "${mlaz}*2" | bc -l`
+	local unwmlran=` echo "${mlran}*2" | bc -l`
+	if [[ "$unwrap" == "true" ]]; then
+	    interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=${unwmlaz} --mlran=${unwmlran}    --demdesc=${procdir}/DAT/dem.dat --coh --amp --dir="${interfdir}" --outdir="${interfdir}" --tmpdir=${procdir}/TEMP  --orthodir="${interfdir}" --bort --noran --noinc --psfilt --psfiltx=${psfiltx}   > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}_unw.log 2<&1
+	    
+	    local inunw="${interfdir}"/psfilt_pha_${master}_${slave}_ml${unwmlaz}${unwmlran}.pha
+	    local incoh="${interfdir}"/coh_${master}_${slave}_ml${unwmlaz}${unwmlran}.byt
+	    local outunw="${interfdir}"/unw_${master}_${slave}_ml${unwmlaz}${unwmlran}.byt
+	    
+	    local templatefile="/opt/diapason/gep.dir/snaphu_template.txt"
+	    local pathbackup=$PATH
+	    export PATH=$PATH:"/opt/diapason/gep.dir/"
+	    
+	    runwrap.pl --geosar=${smgeo}  --phase="${inunw}" --coh="${incoh}"  --template="${templatefile}" --mlaz=${unwmlaz} --mlran=${unwmlran} --outfile=${outunw} --tmpdir=${procdir}/TEMP   >> ${procdir}/log/interf_${interflist[0]}_${interflist[1]}_unw.log 2<&1
+	    
+	    #cat ${procdir}/log/interf_${interflist[0]}_${interflist[1]}_unw.log
+	
+	    if [ -e "${outunw}" ]; then
+		ortho.pl --real --geosar=${smgeo} --in="${outunw}" --demdesc="${ortho_dem}" --tag="unw_${master}_${slave}" --mlaz=${unwmlaz} --mlran=${unwmlran}  --odir="${interfdir}" --tmpdir=${procdir}/TEMP  >> "${procdir}"/log/unw_ortho_${master}_${slave}.log 2<&1
+		
+		local orthounw="${interfdir}/unw_${master}_${slave}_ortho.r4"
+		
+		if [ ! -e "${orthounw}" ]; then
+		    cat "${procdir}"/log/unw_ortho_${master}_${slave}.log
+		fi
+
+		if [ ! -e "${orthounw}" ]; then
+		    cat "${procdir}"/log/unw_ortho_${master}_${slave}.log
+		fi
+		
+		ortho2geotiff.pl --ortho="${orthounw}" --demdesc="${ortho_dem}" --outfile="${interfdir}/unw_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/unw_ortho_${master}_${slave}.log 2<&1
+		
+		
+
+	    fi
+
+	    export PATH="${pathbackup}"
+	fi
+
 	
 	#create_pngs_from_tif "${result}"
 	for f in `find ${interfdir} -name "*.tiff"`; do 
@@ -930,11 +975,19 @@ function generate_ortho_interferograms()
 	create_interf_properties "${interfdir}/amp_${master}_${slave}_ortho.tiff" "Interferometric Amplitude" "${interfdir}" "${mastergeo}" "${slavegeo}"
 	create_interf_properties "${interfdir}/amp_${master}_${slave}_ortho.png" "Interferometric Amplitude - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"
 	create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho.tiff" "Interferometric Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
-	create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho.png" "Interferometric Phase - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"
-	create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho_rgb.tiff" "Interferometric Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
+	#create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho.png" "Interferometric Phase - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"
+	#create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho_rgb.tiff" "Interferometric Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
 	create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho_rgb.png" "Interferometric Phase - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"	
+	
+	rm "${interfdir}/pha_${master}_${slave}_ortho.png"
+	rm "${interfdir}/pha_${master}_${slave}_ortho_rgb.tiff"
 
 	#
+	if [[ "$unwrap" == "true" ]]; then
+	    #"
+	    create_interf_properties "${interfdir}/unw_${master}_${slave}_ortho.tiff" "Unwrapped Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
+	    rm -f "${interfdir}/unw_${master}_${slave}_ortho.png"
+	fi
 
 	 for f in `find "${interfdir}" -iname "*.png" -print -o -iname "*.properties" -print -o -iname "*.tiff" -print`;do
 	    ciop-publish -m "$f"

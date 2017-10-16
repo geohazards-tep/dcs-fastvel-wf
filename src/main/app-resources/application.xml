@@ -66,7 +66,15 @@
 		
 <!--         <parameter id="Goldstein_Weight" title="Goldstein Weight" abstract="Goldstein Weight" scope="runtime" minOccurs="0" maxOccurs="1">0.5</parameter> -->
 		<parameter id="Coh_Threshold" title="Coherence Threshold" abstract="Coherence Threshold" scope="runtime" minOccurs="0" maxOccurs="1">0.5</parameter>
-        <parameter id="aps_smoothing" title="APS Correlation Distance [m]" abstract="APS Correlation Distance [m]" scope="runtime" minOccurs="0" maxOccurs="1">3000</parameter>
+        <parameter id="aps_smoothing" title="APS Correlation Distance [m]" abstract="APS Correlation Distance [m]" scope="runtime" minOccurs="0" maxOccurs="1">3000</parameter>	
+	<parameter id="psfiltx" title="Goldstein phase filter exponential factor" abstract="Phase filter exponential factor" scope="runtime" maxOccurs="1">0.5</parameter>
+	<parameter id="unwrap" title="Phase Unwrapping" abstract="Unwrap the interferograms (IFG mode)" scope="runtime" maxOccurs="1">
+	  <options>
+	    <option>true</option>
+	    <option>false</option>
+	    <default>false</default>
+	  </options>
+	</parameter>
 	<parameter id="publish_intermediate"  title="Publish Processing Intermediate Files" abstract="Keep Processing Intermediate Files" scope="test">false</parameter>
       </defaultParameters>
       <defaultJobconf>       
