@@ -145,12 +145,12 @@ function run_selection()
     #set parameters inputs from the user if any
     if [ -n "${btempmax}" ]; then
 	export BTEMP_MAX_IN="${btempmax}"
-	ciop-log "INFO" "Maximum perpendicular baseline : ${BPERP_MAX_IN}"
+	ciop-log "INFO" "Maximum perpendicular baseline : ${BTEMP_MAX_IN}"
     fi
 
     if [ -n "${bperpmax}" ]; then
 	export BPERP_MAX_IN="${bperpmax}"
-	ciop-log "INFO" "Maximum temporal baseline : ${BTEMP_MAX_IN}"
+	ciop-log "INFO" "Maximum temporal baseline : ${BPERP_MAX_IN}"
     fi 
 
     if [ -n "${dopdiffmax}" ]; then
@@ -476,14 +476,15 @@ function compute_precise_sm()
 
 
 # Public: create a lock directory
-# in hdfs folder for node_selection 
+# in hdfs folder for node_selection
+# (default) 
 # output
 #
 # $1 - workflow id
-#
+# $2 - node name (if unset , then "node_selection" is used)
 # Examples
 #
-#   compute_precise_sm "${serverdir}" "${smtag}" "${wkid}"
+#   create_lock ${_WF_ID}
 #
 # Returns $SUCCESS if the folder was created or an error code otherwise
 #   
@@ -492,7 +493,11 @@ function create_lock()
     if [ $# -lt 1 ]; then
 	return $ERRMISSING
     fi
-    
+    local node_="node_selection"
+    if [ $# -ge 2 ]; then
+	node_="$2"
+    fi
+
     local wkid=$1
     
     local hdfsroot=`ciop-browseresults -r ${wkid} | sed 's@/node_@ @g' | awk '{print $1}' | sort --unique`
@@ -501,7 +506,7 @@ function create_lock()
 	return $ERRINVALID
     fi
     
-    local lockdir="${hdfsroot}/node_selection/lock"
+    local lockdir="${hdfsroot}/${node_}/lock"
     
     hadoop dfs -mkdir ${lockdir} > /dev/null 2<&1 || {
 	return ${ERRGENERIC}
