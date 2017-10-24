@@ -58,15 +58,16 @@
 	<property id="mapred.task.timeout">720000000</property>                      
       </defaultJobconf>
     </jobTemplate>
+    <jobTemplate id="job_preinterf">
+      <streamingExecutable>/application/node_preinterf/run.sh</streamingExecutable>
+      <defaultJobconf>       
+      <property id="mapred.map.max.attempts">1</property>
+      <property id="mapred.task.timeout">720000000</property>                      
+      </defaultJobconf>
+    </jobTemplate>
     <jobTemplate id="job_interf">
       <streamingExecutable>/application/node_interf/run.sh</streamingExecutable>
       <defaultParameters>
-      	<parameter id="ref_point_lat" title="Reference Point Lattitude [deg]" abstract="Reference Point Lattitude" scope="runtime" minOccurs="0" maxOccurs="1"></parameter>
-		<parameter id="ref_point_lon" title="Reference Point Longitude [deg]" abstract="Reference Point Longitude" scope="runtime" minOccurs="0" maxOccurs="1"></parameter>
-		
-<!--         <parameter id="Goldstein_Weight" title="Goldstein Weight" abstract="Goldstein Weight" scope="runtime" minOccurs="0" maxOccurs="1">0.5</parameter> -->
-		<parameter id="Coh_Threshold" title="Coherence Threshold" abstract="Coherence Threshold" scope="runtime" minOccurs="0" maxOccurs="1">0.5</parameter>
-        <parameter id="aps_smoothing" title="APS Correlation Distance [m]" abstract="APS Correlation Distance [m]" scope="runtime" minOccurs="0" maxOccurs="1">3000</parameter>	
 	<parameter id="psfiltx" title="Goldstein phase filter exponential factor" abstract="Phase filter exponential factor" scope="runtime" maxOccurs="1">0.5</parameter>
 	<parameter id="unwrap" title="Phase Unwrapping" abstract="Unwrap the interferograms (IFG mode)" scope="runtime" maxOccurs="1">
 	  <options>
@@ -74,8 +75,21 @@
 	    <option>false</option>
 	    <default>false</default>
 	  </options>
-	</parameter>
-	<parameter id="publish_intermediate"  title="Publish Processing Intermediate Files" abstract="Keep Processing Intermediate Files" scope="test">false</parameter>
+	</parameter>	
+      </defaultParameters>
+      <defaultJobconf>       
+	<property id="mapred.map.max.attempts">1</property>
+	<property id="mapred.task.timeout">720000000</property>                      
+      </defaultJobconf>
+    </jobTemplate>
+    <jobTemplate id="job_fastvel">
+      <streamingExecutable>/application/node_fastvel/run.sh</streamingExecutable>
+      <defaultParameters>
+      	<parameter id="ref_point_lat" title="Reference Point Lattitude [deg]" abstract="Reference Point Lattitude" scope="runtime" minOccurs="0" maxOccurs="1"></parameter>
+		<parameter id="ref_point_lon" title="Reference Point Longitude [deg]" abstract="Reference Point Longitude" scope="runtime" minOccurs="0" maxOccurs="1"></parameter>
+		<parameter id="Coh_Threshold" title="Coherence Threshold" abstract="Coherence Threshold" scope="runtime" minOccurs="0" maxOccurs="1">0.5</parameter>
+        <parameter id="aps_smoothing" title="APS Correlation Distance [m]" abstract="APS Correlation Distance [m]" scope="runtime" minOccurs="0" maxOccurs="1">3000</parameter>	
+	<parameter id="publish_intermediate"  title="Publish Processing Intermediate Files" abstract="Keep Processing Intermediate Files" scope="test">true</parameter>
       </defaultParameters>
       <defaultJobconf>       
 	<property id="mapred.map.max.attempts">1</property>
@@ -112,10 +126,22 @@
 	      <source refid="wf:node">node_selection</source>
 	    </sources>
 	  </node>
-	  <node id="node_interf">
-	    <job id="job_interf" />
+	   <node id="node_preinterf">
+	    <job id="job_preinterf" />
 	    <sources>
 	      <source refid="wf:node">node_coreg</source>
+	    </sources>
+	  </node>
+	   <node id="node_interf">
+	    <job id="job_interf" />
+	    <sources>
+	      <source refid="wf:node">node_preinterf</source>
+	    </sources>
+	  </node>
+	   <node id="node_fastvel">
+	    <job id="job_fastvel" />
+	    <sources>
+	      <source refid="wf:node">node_interf</source>
 	    </sources>
 	  </node>
     </workflow>

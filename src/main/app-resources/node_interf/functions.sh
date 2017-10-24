@@ -48,7 +48,7 @@ function import_coreg_results()
 	
 	[ $status -ne 0 ] && {
 	    ciop-log "ERROR" "Failed to import file ${d}"
-	    return 1
+	    return ${ERRGENERIC}
 	}
 	ciop-log "INFO" "Imported ${d}"
 	done
@@ -91,8 +91,7 @@ function import_interf_list()
 	    
 	    [ $status -ne 0 ] && {
 		ciop-log "ERROR" "Failed to import file ${file} (hadoop status $status)"
-		ls -l ${procdir}/DAT/`basename ${file}`
-		return 1
+		return ${ERRGENERIC}
 	    }
 	done
     done
@@ -100,18 +99,18 @@ function import_interf_list()
     local interflistfile=${procdir}/DAT/list_interf_auto.txt
     [ ! -f "${interflistfile}" ] && {
 	ciop-log "ERROR" "Failed to import interferogram list file"
-	return 1
+	return ${ERRGENERIC}
     }
 
     local smselectionfile=${procdir}/DAT/SM_selection_auto.txt
     
     [ ! -f "${smselectionfile}" ] && {
 	ciop-log "ERROR" "Failed to import SM selection file"
-	return 1
+	return ${ERRGENERIC}
     }
     
     
-    return 0
+    return ${SUCCESS}
 
 }
 
@@ -141,7 +140,7 @@ function import_dem_from_node_selection()
     
     [ -z "${remotedemdir}" ] && {
 	echo "Missing remote DEM directory"
-	return 1
+	return ${ERRGENERIC}
     }
     local status=0
     for f in `hadoop dfs -lsr ${remotedemdir} | awk '{print $8}' | grep -i dem.tif`; do
@@ -149,14 +148,14 @@ function import_dem_from_node_selection()
 	status=$?
 	[ $status -ne 0 ] && {
 	    ciop-log "ERROR" "Failed to import ${f}"
-	    return 1
+	    return ${ERRGENERIC}
 }
 	#check imported geotiff dem
 	local demtif=${procdir}/DAT/dem.tif
 	
 	[ ! -f "${demtif}" ] && {
 	    ciop-log "ERROR" "Missing DEM file"
-	    return 1
+	    return ${ERRGENERIC}
 	}
 
 	#convert to DIAP format
@@ -166,7 +165,7 @@ function import_dem_from_node_selection()
     if [ $importst -ne 0 ] || [ ! -e "${procdir}/DAT/dem.dat" ]; then
 	ciop-log "ERROR"  "DEM conversion failed"
 	#procCleanup
-	return 1
+	return ${ERRGENERIC}
     fi
 	
     done
@@ -849,11 +848,7 @@ function generate_ortho_interferograms()
 
     local ortho_dem=$(get_dem_for_ortho "${procdir}/DAT/dem.tif" "${procdir}" ${_WF_ID} "${aoishape}")
     
-    #ciop-log "ortho dem test : -->${ortho_dem}<--- `ls ${ortho_dem}`"
-    
-
-    #local ortho_dem=""
-
+ 
     if [ -z "${ortho_dem}" ]; then
 	ortho_dem="${procdir}/DAT/dem.dat"
     fi
@@ -1032,8 +1027,7 @@ function get_dem_for_ortho()
     if [ -n "${shapefile}" ] && [ -e "${shapefile}" ] && [ -e "/opt/gdalcrop/bin/gdalcrop" ]; then
 	local cropped=${dir}/dem_cropped.tif
 	ciop-log "INFO" "Cropping DEM using AOI ${shapefile}"
-	/opt/gdalcrop/bin/gdalcrop "${indemtif}" "${shapefile}" "${cropped}" > /tmp/gdalcrop.txt 2<&1
-	chmod 777 /tmp/gdalcrop.txt > /dev/null 2<&1
+	/opt/gdalcrop/bin/gdalcrop "${indemtif}" "${shapefile}" "${cropped}" > /dev/null 2<&1
 	local statuscrop=$?
 	if [ $statuscrop -eq 0 ]; then
 	    ciop-log "INFO" "DEM was successfully cropped"
@@ -1079,4 +1073,280 @@ function get_dem_for_ortho()
 
     return $SUCCESS
     
+}
+
+
+# Public: import geosar and orbital files from node_coreg
+#
+# Takes a local folder and the workflow id as arguments
+# 
+# The function will copy to the local folder for each image
+# the geosar ,orb
+#
+# $1 - local processing folder path
+# $2 - workflow id
+#
+#
+# Returns 0 on success and 1 on error
+#   
+
+function import_geosar()
+{
+    if [ $# -lt 2 ]; then
+        ciop-log "ERROR" "Usage: $FUNCTION localdir run_id"
+	return ${ERRMISSING}
+    fi
+
+    local procdir="$1"
+    local runid="$2"
+
+    for x in `ciop-browseresults -j node_coreg -r ${runid}`;do
+	for d in `hadoop dfs -lsr ${x} | awk '{print $8}' | grep "DAT/GEOSAR/\|ORB/"`;do
+	    local exten=${d##*.}
+	local status=0
+	case "${exten}" in
+	    orb)hadoop dfs -copyToLocal ${d} ${procdir}/ORB/
+		status=$?
+		;;
+	    *geosar*)hadoop dfs -copyToLocal ${d} ${procdir}/DAT/GEOSAR/
+		status=$?
+		;;
+	esac
+	
+	
+	[ $status -ne 0 ] && {
+	    ciop-log "ERROR" "Failed to import file ${d}"
+	    return ${ERRGENERIC}
+	}
+	echo "INFO" "Imported ${d}"
+	done
+	
+    done
+
+    find ${procdir} -name "*.geosar*"  -exec geosarfixpath.pl --geosar='{}' --serverdir=${procdir} \; > /dev/null 2<&1
+    
+    return ${SUCCESS}
+}
+
+
+
+# Public: import geo ci2 images from node_coreg
+#
+# Takes a local folder and the workflow id as arguments
+# 
+# The function will copy to the local folder for each image
+# the geosar ,orb
+#
+# $1 - local processing folder path
+# $2 - workflow id
+#
+#
+# Returns 0 on success and 1 on error
+#   
+
+function import_geo_image()
+{
+    if [ $# -lt 3 ]; then
+	return 255
+    fi
+
+    local serverdir=$1
+    local wkid=$2
+    local orbnum=$3
+    local timeoutsec=10
+    local retries=50
+
+    if [ -z "`type -p lockfile`" ]; then
+	ciop-log "ERROR" "Missing lockfile utility"
+	return ${ERRMISSING}
+    fi
+
+    local lockfile="${serverdir}/TEMP/${orbnum}.lock"
+
+    if lockfile -r ${retries} -${timeoutsec} ${lockfile}  ; then
+	local geo_count=`find ${serverdir}/GEO_CI2_EXT_LIN/ -iname "geo_${orbnum}_*.*" -print | wc -l`
+	if [ $geo_count -eq 0 ]; then
+	    for x in `ciop-browseresults -j node_coreg -r ${wkid}`;do
+		for d in `hadoop dfs -lsr ${x} | awk '{print $8}' | grep "geo_${orbnum}_*.*"`;do
+		    echo "copying $d"
+		    hadoop dfs -copyToLocal ${d} ${serverdir}/GEO_CI2_EXT_LIN
+		done
+	    done
+	else
+	    echo "geo image ${orbnum} already copied"
+	fi
+	rm -f ${lockfile}
+    else
+	echo "Cannot acquire lock file for orb ${orbnum}"
+	return ${ERRGENERIC}
+    fi
+
+    return ${SUCCESS}
+}
+
+
+
+# Public: perform the interferogram generation
+#
+# Takes a local folder and the interferogram list
+# 
+#
+# $1 - local processing folder path
+# $2 - master image tag
+# $3 - master image orbnum
+# $4 - slave image orbnum
+#
+# Returns $SUCCESS on success and an error code otherwise
+#
+function generate_interferogram()
+{
+    if [ $# -lt 3 ]; then
+	ciop-log "ERROR" "Missing argument procdir"
+	return ${ERRMISSING}
+    fi
+
+    local procdir="$1"
+    local smtag="$2"
+    local master=$3
+    local slave=$4
+
+    if [ -z "${PROPERTIES_FILE}" ] || [ ! -e "${PROPERTIES_FILE}" ]; then
+	ciop-log "ERROR" "Undefined PROPERTIES_FILE"
+	return ${ERRMISSING}
+    fi
+    
+    #infer super-master orbit
+    local smselection="${procdir}/DAT/SM_selection_auto.txt"
+    
+    [ ! -e "${smselection}" ] && {
+	ciop-log "ERROR" "Missing file ${smselection}"
+	return ${ERRMISSING}
+    }
+
+    local smorb=`grep [0-9] ${smselection} | head -1`
+    
+    [ -z "${smorb}" ] && {
+	ciop-log "ERROR" "Unable to determine super-master orbit number"
+	return ${ERRINVALID}
+    }
+
+    local listinterf="${procdir}/DAT/list_interf_auto.txt"
+    
+    [ ! -e "${listinterf}" ] && {
+	ciop-log "ERROR" "Missing file ${listinterf}"
+	return ${ERRMISSING}
+    }
+
+    #read parameters from properties
+    local rnunder
+    local azunder
+    read_geom_undersampling "${procdir}/DAT/GEOSAR/${smorb}.geosar_ext" "${PROPERTIES_FILE}" azunder rnunder || {
+	ciop-log "ERROR" "Failed to determine geometric undersampling factors"
+	return ${ERRGENERIC}
+    }
+
+    local mlaz
+    local mlran
+    local interpx
+    #
+    read_multilook_factors ${smtag} "${PROPERTIES_FILE}" mlaz mlran interpx || {
+	ciop-log "ERROR" "Failed to determine multilook parameters from properties file ${PROPERTIES_FILE}"
+	return ${ERRGENERIC}
+    }
+    
+    if [ -z "${mlaz}" ] || [ -z "${mlran}" ] || [ -z "${interpx}" ]; then
+	ciop-log "ERROR" "Failed to determine multilook parameters from properties file ${PROPERTIES_FILE}"
+	return ${ERRGENERIC}	
+    fi
+
+    mlran=`echo ${mlran}*${interpx} | bc -l`
+    
+
+    if [ -z "${azunder}" ] || [ -z "${rnunder}" ]; then
+	    ciop-log "ERROR" "Failed to determine geometric undersampling factors"
+	    return ${ERRGENERIC}
+    fi
+	
+    echo "INFO read ${azunder} ${rnunder}"
+    #multilook factors for interferograms used in orbit correction
+    local ocmlaz
+    local ocmlran
+    
+    read_multilook_factors_orbit_correction ${smtag} "${PROPERTIES_FILE}" ocmlaz ocmlran  || {
+	ciop-log "ERROR" "Failed to determine orbit correction multilook parameters from properties file ${PROPERTIES_FILE}"
+	return ${ERRGENERIC}
+    }
+
+    #SM geosar
+    local smgeo=${procdir}/DAT/GEOSAR/${smorb}.geosar_ext
+    
+    
+    #aoi
+    local aoifile="${procdir}/DAT/aoi.txt"
+    local aoidef=`grep "[0-9]" ${aoifile} | head -1`
+    local roi=""
+    local roiopt=""
+    
+    if [ -e "${aoifile}" ] && [ -n "$aoidef" ] ; then
+	roi=$(geosar_get_aoi_coords2 "${smgeo}" "${aoidef}" "${procdir}/DAT/dem.dat"  "${procdir}/log/" )
+	local roist=$?
+	echo "INFO" "geosar_get_aoi_coords status ${roist}"
+    else
+	echo "INFO" "Missing file ${aoifile}"
+	echo "INFO" "aoi defn ${aoidef}"
+    fi
+
+    echo "INFO" "aoi roi defn : ${roi}"
+    [ -n "${roi}" ] && {
+    	roiopt="--roi=${roi}"
+    }
+    
+    #iterate over list interf
+    declare -a interflist
+    interflist=(`echo "$master $slave"`)
+    
+    
+    
+	#TO-DO read ML and under from properties
+    local mastergeo=${procdir}/DAT/GEOSAR/${interflist[0]}.geosar_ext
+    local slavegeo=${procdir}/DAT/GEOSAR/${interflist[1]}.geosar_ext
+    local masterci2=${procdir}/GEO_CI2_EXT_LIN/geo_${interflist[0]}_${smorb}.ci2
+    local slaveci2=${procdir}/GEO_CI2_EXT_LIN/geo_${interflist[1]}_${smorb}.ci2
+ 
+    #create folder for interfeogram
+    interfdir=`mktemp -d ${procdir}/TEMP/interf_${master}_${slave}_XXXXXX`
+    if [ -z "$interfdir" ]; then
+	echo "cannot create folder in ${procdir}/TEMP"
+	return ${ERRPERM}
+    fi
+   
+    cp ${mastergeo} ${interfdir}
+    cp ${slavegeo} ${interfdir}
+    cp ${procdir}/ORB/${interflist[0]}.orb ${interfdir}
+    cp ${procdir}/ORB/${interflist[1]}.orb ${interfdir}
+    
+
+    interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=${mlaz} --mlran=${mlran} --aziunder=${azunder} --ranunder=${rnunder} --demdesc=${procdir}/DAT/dem.dat --coh --bort --inc --ran --dir=${interfdir} --outdir=${interfdir} --tmpdir=${procdir}/TEMP "${roiopt}"  > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}.log 2<&1
+    local status=$?
+    [ $status -ne 0 ] && {
+	ciop-log "ERROR" "Generation of interferogram ${interflist[0]} - ${interflist[1]} Failed"
+	rm -rf "${interfdir}"
+	return ${ERRMISSING}
+    }
+    
+    interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=${ocmlaz} --mlran=${ocmlran} --aziunder=${azunder} --ranunder=${rnunder} --demdesc=${procdir}/DAT/dem.dat --coh  --dir=${interfdir} --outdir=${interfdir} --tmpdir=${procdir}/TEMP --nobort --noinc --noran   > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}_ml${ocmlaz}${ocmlran}.log 2<&1
+    
+    
+    echo "INFO" "Generation of interferogram ${interflist[0]} - ${interflist[1]} successful"
+    
+    ciop-publish -a -r "${interfdir}" || {
+	ciop-log "ERROR" "Failed to publish interferogram folder for pair "${interflist[0]}" " ${interflist[1]}
+	rm -rf "${interfdir}"
+	return ${ERRGENERIC}
+    }
+    
+    rm -rf "${interfdir}"
+
+
+    return ${SUCCESS}
 }
