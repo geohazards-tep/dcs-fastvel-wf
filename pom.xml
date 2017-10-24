@@ -64,6 +64,7 @@
                     <require>perl-XML-LibXML</require>
                     <require>perl-DBI</require>
                     <require>gdalcrop</require>
+		    <require>perl-DBD-SQLite</require>
                   </requires>
                 </configuration>
               </execution>
