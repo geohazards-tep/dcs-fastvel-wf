@@ -77,6 +77,9 @@ import_interf_list "${serverdir}" "${_WF_ID}" || {
     #get aoi string definition
 import_aoi_def_from_node_import "${serverdir}" "${mastertag}" "${_WF_ID}" 
 
+export mode=$(get_global_parameter "processing_mode" "${_WF_ID}") || {
+	ciop-log "WARNING" "Global parameter \"processing_mode\" not found. Defaulting to \"MTA\""
+    }
 
 #read inputs from stdin
 #each line has: masterorbit@slave_orbit
@@ -104,7 +107,12 @@ import_geo_image "${serverdir}" "${_WF_ID}" ${imgpair[1]} || {
 
 ciop-log "INFO" "processing pair"${imgpair[@]}
 
-generate_interferogram "${serverdir}" "${mastertag}" ${imgpair[0]} ${imgpair[1]}
+if [[ "$mode" == "MTA" ]]; then
+    generate_interferogram "${serverdir}" "${mastertag}" ${imgpair[0]} ${imgpair[1]}
+else
+    generate_ortho_interferogram "${serverdir}" "${mastertag}" ${imgpair[0]} ${imgpair[1]}
+fi
+
 done
 
 for d in `find ${serverdir}/TEMP -type d -iname "interf_*" -print`; do
