@@ -38,8 +38,14 @@ function main()
 {
     local wkid=${_WF_ID}
 
+    #
+    local publish_intermediate_flag=`ciop-getparam publish_intermediate`
 
-    
+    if [[ "${publish_intermediate_flag}" != "true"  ]]; then
+        #cleanup node_coreg node
+	node_cleanup "${wkid}" "node_coreg"
+    fi
+
     local mode=$(get_global_parameter "processing_mode" "${wkid}") || {
 	ciop-log "WARNING" "Global parameter \"processing_mode\" not found. Defaulting to \"MTA\""
     }
@@ -102,21 +108,12 @@ function main()
 }
 
 
-
-    
-    
-    #cleanup node_coreg node
-    node_cleanup "${wkid}" "node_coreg"
-
-
     #rename processing folder
     local pubdir=${TMPDIR}/INSAR_PROCESSING
 
     mv "${serverdir}" "${pubdir}"
     serverdir="${pubdir}"
 
-    #
-    local publish_intermediate_flag=`ciop-getparam publish_intermediate`
     
     if [[ "${publish_intermediate_flag}" != "true"  ]]; then
 	node_cleanup "${wkid}" "node_interf"
