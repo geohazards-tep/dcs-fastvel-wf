@@ -16,6 +16,10 @@ export PROPERTIES_FILE=$_CIOP_APPLICATION_PATH/properties/properties.xml
 
 #read global parameters
 mode=`ciop-getparam processing_mode`
+aoi=`ciop-getparam aoi`
+ref_lon=`ciop-getparam ref_point_lon`
+ref_lat=`ciop-getparam ref_point_lat`
+
 
 dir=$(mktemp -d "${TMPDIR}/glob_param_XXXXXX")
 
@@ -25,17 +29,43 @@ if [ ! -e "${dir}" ]; then
     exit $ERRPERM
 fi
 
+#create AOI shapefile
+aoi2shp "${aoi}" "${dir}" "AOI"
+aoishapefile=${dir}/AOI.shp
+if [ ! -e "${aoishapefile}" ]; then
+    ciop-log "ERROR" "Cannot create aoi shapefile"
+    echo ""
+    rm -rf "${dir}"
+    exit $ERRGENERIC
+fi
+
+
 #create a file with parameters that should be available to 
 #all nodes
 glob_param_file=${dir}/global_parameters.txt
 
 echo "processing_mode=${mode}" >> ${glob_param_file}
+echo "aoi=${aoi}" >> ${glob_param_file}
+echo "ref_point_lat=${ref_lat}" >> ${glob_param_file}
+echo "ref_point_lon=${ref_lon}" >> ${glob_param_file}
 
 ciop-publish -a "${glob_param_file}" || {
     	ciop-log "ERROR" "Failed to publish global parameters file"
 	echo ""
+	rm -rf "${dir}"
 	exit ${ERRGENERIC}
 }
+
+#check ref point is inside aoi
+ref_check ${aoishapefile} ${ref_lon} ${ref_lat} || {
+    ciop-log "ERROR" "Reference point is not within area of interest"
+    echo ""
+    rm -rf ${dir}
+    exit ${ERRINVALID}
+}
+
+#delete temporary folder
+rm -rf "${dir}"
 
 #count the number of inputs
 input_count=0;

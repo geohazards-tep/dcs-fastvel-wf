@@ -2054,7 +2054,7 @@ function get_global_parameter()
 	return $ERRMISSING
     fi
     
-    local value=`hadoop dfs -cat ${global_param_file} | cut -f2 -d "="`
+    local value=`hadoop dfs -cat ${global_param_file} | grep ${param_name} | cut -f2 -d "="`
     if [ -z "${value}" ]; then
 	ciop-log "ERROR" "Parameter ${param_name} not found in ${global_param_file}"
 	return $ERRMISSING
@@ -2207,4 +2207,84 @@ function create_interf_properties()
 	local wkt=`head -1 "${wktfile}"`
 	echo "geometry = ${wkt}" >> "${propfile}"
     fi
+}
+
+
+
+# Public: check whether reference point is inside
+# AOI defined by a shapefile
+# 
+# 
+# Takes the parameter name and the workflow id as input 
+#
+# $1 - aoi shapefile
+# $2 - reference point longitude
+# $3 - reference point latitude
+#
+# Examples
+#
+#   ref_check shapefile.shp "$ref_lon" $ref_lat 
+#
+# Returns $SUCCESS when the parameter was found 
+# 
+#   
+function ref_check(){
+
+    if [ $# -lt 3 ]; then
+	echo "Usage : $FUNC shapefile ref_lon ref_lat"
+	return ${ERRMISSING}
+    fi
+
+    local shapefile="$1"
+    local ref_lon="$2"
+    local ref_lat="$3"
+
+    /usr/bin/python <<EOF
+import sys
+try:
+  from osgeo import ogr
+except ImportError:
+  sys.exit(0)
+
+status=0
+
+try:
+  shapefile = "${shapefile}"
+  driver = ogr.GetDriverByName("ESRI Shapefile")
+  dataSource = driver.Open(shapefile,0)
+  layer = dataSource.GetLayer()
+
+  (xmin,xmax,ymin,ymax) = layer.GetExtent()
+
+  #ring
+  ring = ogr.Geometry(ogr.wkbLinearRing)
+  ring.AddPoint(xmin,ymin)
+  ring.AddPoint(xmax,ymin)
+  ring.AddPoint(xmax,ymax)
+  ring.AddPoint(xmin,ymax)
+  ring.AddPoint(xmin,ymin)
+
+  #Create polygon
+  polygon = ogr.Geometry(ogr.wkbPolygon)
+  polygon.AddGeometry(ring)
+
+  #point
+  pt = ogr.Geometry(ogr.wkbPoint)
+  pt.AddPoint($ref_lon,$ref_lat)
+  if not pt.Within(polygon):
+     status=1
+except Exception,e:
+  sys.exit(0)
+
+sys.exit(status)
+
+EOF
+
+local status=$?
+
+if [ $status -ne 0 ]; then
+    return ${ERRGENERIC}
+fi
+
+return ${SUCCESS}
 }

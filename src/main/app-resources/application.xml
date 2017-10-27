@@ -11,6 +11,9 @@
 	    <default>MTA</default>
 	  </options>
 	</parameter>
+	<parameter id="aoi" title="Area Of Interest" abstract="Restrict processing to selected area [minlon,minlat,maxlon,maxlat]."  scope="runtime"  target="geo:box" type="BoundingBoxData" minOccurs="1" maxOccurs="1"></parameter>
+	<parameter id="ref_point_lat" title="Reference Point Lattitude [deg]" abstract="Reference Point Lattitude" scope="runtime" minOccurs="1" maxOccurs="1"></parameter>
+	<parameter id="ref_point_lon" title="Reference Point Longitude [deg]" abstract="Reference Point Longitude" scope="runtime" minOccurs="1" maxOccurs="1"></parameter>
       </defaultParameters>
       <defaultJobconf>       
 	<property id="mapred.map.max.attempts">1</property>
@@ -20,7 +23,6 @@
     <jobTemplate id="job_import">
       <streamingExecutable>/application/node_import/run.sh</streamingExecutable>
       <defaultParameters>
-	<parameter id="aoi" title="Area Of Interest" abstract="Restrict processing to selected area [minlon,minlat,maxlon,maxlat]."  scope="runtime"  target="geo:box" type="BoundingBoxData" minOccurs="1" maxOccurs="1"></parameter>
 	<parameter id="pol" title="Polarization" abstract="Polarization" scope="test" maxOccurs="1">
 	  <options>
 	    <option>VV</option>
@@ -85,11 +87,10 @@
     <jobTemplate id="job_fastvel">
       <streamingExecutable>/application/node_fastvel/run.sh</streamingExecutable>
       <defaultParameters>
-      	<parameter id="ref_point_lat" title="Reference Point Lattitude [deg]" abstract="Reference Point Lattitude" scope="runtime" minOccurs="0" maxOccurs="1"></parameter>
-		<parameter id="ref_point_lon" title="Reference Point Longitude [deg]" abstract="Reference Point Longitude" scope="runtime" minOccurs="0" maxOccurs="1"></parameter>
+      	
 		<parameter id="Coh_Threshold" title="Coherence Threshold" abstract="Coherence Threshold" scope="runtime" minOccurs="0" maxOccurs="1">0.5</parameter>
         <parameter id="aps_smoothing" title="APS Correlation Distance [m]" abstract="APS Correlation Distance [m]" scope="runtime" minOccurs="0" maxOccurs="1">3000</parameter>	
-	<parameter id="publish_intermediate"  title="Publish Processing Intermediate Files" abstract="Keep Processing Intermediate Files" scope="test">true</parameter>
+	<parameter id="publish_intermediate"  title="Publish Processing Intermediate Files" abstract="Keep Processing Intermediate Files" scope="test">false</parameter>
       </defaultParameters>
       <defaultJobconf>       
 	<property id="mapred.map.max.attempts">1</property>

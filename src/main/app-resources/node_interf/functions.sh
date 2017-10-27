@@ -609,10 +609,12 @@ function generate_fast_vel_conf()
 
 	#get values needed from UI
 	local coherencethreshold=`ciop-getparam Coh_Threshold`
-	local pointreflon=`ciop-getparam ref_point_lon`
-	local pointreflat=`ciop-getparam ref_point_lat`
+	#local pointreflon=`ciop-getparam ref_point_lon`
+	#local pointreflat=`ciop-getparam ref_point_lat`
+	local pointreflon=$(get_global_parameter  "ref_point_lon" "${_WF_ID}")
+	local pointreflat=$(get_global_parameter  "ref_point_lat" "${_WF_ID}")
 	local aps_correlation=`ciop-getparam aps_smoothing`
-
+	
 	#parse variables on the template processed file
 	sed -e "s#{OUTPUT_DIR}#$outputdir#g" \
       -e "s#{NAME_SLC}#$nameslcfile#g"  \
@@ -793,7 +795,6 @@ function generate_ortho_interferograms()
 	    return ${ERRGENERIC}
     fi
 	
-    echo "INFO read ${azunder} ${rnunder}"
     #multilook factors for interferograms used in orbit correction
     local ocmlaz
     local ocmlran
@@ -1270,7 +1271,6 @@ function generate_interferogram()
 	    return ${ERRGENERIC}
     fi
 	
-    echo "INFO read ${azunder} ${rnunder}"
     #multilook factors for interferograms used in orbit correction
     local ocmlaz
     local ocmlran
@@ -1440,7 +1440,6 @@ function generate_ortho_interferogram()
 	    return ${ERRGENERIC}
     fi
 	
-    echo "INFO read ${azunder} ${rnunder}"
     #multilook factors for interferograms used in orbit correction
     local ocmlaz
     local ocmlran
