@@ -63,6 +63,7 @@
                     <require>perl-DateTime</require>
                     <require>perl-XML-LibXML</require>
                     <require>perl-DBI</require>
+                    <require>perl-DBD-SQLite</require>
                     <require>gdalcrop</require>
 		    <require>perl-DBD-SQLite</require>
                   </requires>
