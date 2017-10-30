@@ -105,7 +105,7 @@ import_geo_image "${serverdir}" "${_WF_ID}" ${imgpair[1]} || {
     continue
 }
 
-ciop-log "INFO" "processing pair"${imgpair[@]}
+ciop-log "INFO" "processing pair "${imgpair[@]}
 
 if [[ "$mode" == "MTA" ]]; then
     generate_interferogram "${serverdir}" "${mastertag}" ${imgpair[0]} ${imgpair[1]}
