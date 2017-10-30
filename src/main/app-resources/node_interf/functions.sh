@@ -382,7 +382,6 @@ function generate_interferograms()
 	    ciop-log "ERROR" "Generation of interferogram ${interflist[0]} - ${interflist[1]} Failed"
 	    return ${ERRMISSING}
 	}
-	
 	interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=${ocmlaz} --mlran=${ocmlran} --aziunder=${azunder} --ranunder=${rnunder} --demdesc=${procdir}/DAT/dem.dat --coh  --dir=${procdir}/DIF_INT --outdir=${procdir}/DIF_INT/ --tmpdir=${procdir}/TEMP --nobort --noinc --noran   > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}_ml${ocmlaz}${ocmlran}.log 2<&1
 
 	[ -n "${roi}" ] && {
@@ -826,7 +825,9 @@ function generate_ortho_interferograms()
     local aoidef=`grep "[0-9]" ${aoifile} | head -1`
     local roi=""
     local roiopt=""
-    
+    local topleftyopt=""
+    local topleftxopt=""
+
     if [ -e "${aoifile}" ] && [ -n "$aoidef" ] ; then
 	roi=$(geosar_get_aoi_coords2 "${smgeo}" "${aoidef}" "${procdir}/DAT/dem.dat"  "${procdir}/log/" )
 	local roist=$?
@@ -839,6 +840,10 @@ function generate_ortho_interferograms()
     ciop-log "INFO" "aoi roi defn : ${roi}"
     [ -n "${roi}" ] && {
     	roiopt="--roi=${roi}"
+	declare -a roiarr
+	roiarr=(`echo "${roi}" | sed 's@,@\n@g' | cut -f2 -d "="`)
+	topleftxopt="--topleftx="${roiarr[2]}
+	topleftyopt="--toplefty="${roiarr[0]}
     }
     
     local aoishape="${procdir}/AOI/AOI.shp"
@@ -885,7 +890,7 @@ function generate_ortho_interferograms()
 	master=${interflist[0]}
 	slave=${interflist[1]}
 
-	interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=1 --mlran=1  --winazi=${mlaz} --winran=${mlran}  --demdesc=${procdir}/DAT/dem.dat --coh --amp --dir="${interfdir}" --outdir="${interfdir}" --tmpdir=${procdir}/TEMP  --orthodir="${interfdir}" --nobort --noran --noinc --psfilt --psfiltx=${psfiltx}  > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}.log 2<&1
+	interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=1 --mlran=1  --winazi=${mlaz} --winran=${mlran}  --demdesc=${procdir}/DAT/dem.dat --coh --amp --dir="${interfdir}" --outdir="${interfdir}" --tmpdir=${procdir}/TEMP  --orthodir="${interfdir}" --nobort --noran --noinc --psfilt --psfiltx=${psfiltx} ${roiopt}  > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}.log 2<&1
 	local status=$?
 	[ $status -ne 0 ] && {
 	    ciop-log "ERROR" "Generation of interferogram ${interflist[0]} - ${interflist[1]} Failed"
@@ -895,11 +900,11 @@ function generate_ortho_interferograms()
 	find ${procdir}/ORB -iname "*${interflist[0]}*.orb" -print -o -iname "*${interflist[1]}*.orb" -print | alt_ambig.pl --geosar=${smgeo}  -o ${interfdir}/AMBIG.DAT > /dev/null 2<&1
 
 	#ortho of the phase
-	ortho.pl --geosar=${smgeo} --in="${interfdir}/psfilt_pha_${master}_${slave}_ml11.rad" --demdesc="${ortho_dem}" --cplx  --tag="${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP   >> "${procdir}"/log/pha_ortho_${master}_${slave}.log 2<&1
+	ortho.pl --geosar=${smgeo} --in="${interfdir}/psfilt_pha_${master}_${slave}_ml11.rad" --demdesc="${ortho_dem}" --cplx  --tag="${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP ${topleftxopt} ${topleftyopt}    #>> "${procdir}"/log/pha_ortho_${master}_${slave}.log 2<&1
 	#ortho of the coherence
-	ortho.pl --geosar=${smgeo} --in="${interfdir}/coh_${master}_${slave}_ml11.rad" --demdesc="${ortho_dem}" --tag="coh_${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP   >> "${procdir}"/log/coh_ortho_${master}_${slave}.log 2<&1
+	ortho.pl --geosar=${smgeo} --in="${interfdir}/coh_${master}_${slave}_ml11.rad" --demdesc="${ortho_dem}" --tag="coh_${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP ${topleftxopt} ${topleftyopt}  #>> "${procdir}"/log/coh_ortho_${master}_${slave}.log 2<&1
 	#ortho of the amplitude
-	ortho.pl --geosar=${smgeo} --in="${interfdir}/amp_${master}_${slave}_ml11.rad" --demdesc="${ortho_dem}" --tag="amp_${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP  >> "${procdir}"/log/amp_ortho_${master}_${slave}.log 2<&1
+	ortho.pl --geosar=${smgeo} --in="${interfdir}/amp_${master}_${slave}_ml11.rad" --demdesc="${ortho_dem}" --tag="amp_${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP ${topleftxopt} ${topleftyopt}  >> "${procdir}"/log/amp_ortho_${master}_${slave}.log 2<&1
 
 	#create geotiff
 	ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --mask --alpha="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --colortbl=BLUE-RED  --demdesc="${ortho_dem}" --outfile="${interfdir}/pha_${master}_${slave}_ortho_rgb.tiff"  --tmpdir=${procdir}/TEMP  >> ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
@@ -917,7 +922,7 @@ function generate_ortho_interferograms()
 	local unwmlaz=` echo "${mlaz}*2" | bc -l`
 	local unwmlran=` echo "${mlran}*2" | bc -l`
 	if [[ "$unwrap" == "true" ]]; then
-	    interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=${unwmlaz} --mlran=${unwmlran}    --demdesc=${procdir}/DAT/dem.dat --coh --amp --dir="${interfdir}" --outdir="${interfdir}" --tmpdir=${procdir}/TEMP  --orthodir="${interfdir}" --bort --noran --noinc --psfilt --psfiltx=${psfiltx}   > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}_unw.log 2<&1
+	    interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=${unwmlaz} --mlran=${unwmlran}    --demdesc=${procdir}/DAT/dem.dat --coh --amp --dir="${interfdir}" --outdir="${interfdir}" --tmpdir=${procdir}/TEMP  --orthodir="${interfdir}" --bort --noran --noinc --psfilt --psfiltx=${psfiltx} ${roiopt}   > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}_unw.log 2<&1
 	    
 	    local inunw="${interfdir}"/psfilt_pha_${master}_${slave}_ml${unwmlaz}${unwmlran}.pha
 	    local incoh="${interfdir}"/coh_${master}_${slave}_ml${unwmlaz}${unwmlran}.byt
@@ -932,7 +937,7 @@ function generate_ortho_interferograms()
 	    #cat ${procdir}/log/interf_${interflist[0]}_${interflist[1]}_unw.log
 	
 	    if [ -e "${outunw}" ]; then
-		ortho.pl --real --geosar=${smgeo} --in="${outunw}" --demdesc="${ortho_dem}" --tag="unw_${master}_${slave}" --mlaz=${unwmlaz} --mlran=${unwmlran}  --odir="${interfdir}" --tmpdir=${procdir}/TEMP  >> "${procdir}"/log/unw_ortho_${master}_${slave}.log 2<&1
+		ortho.pl --real --geosar=${smgeo} --in="${outunw}" --demdesc="${ortho_dem}" --tag="unw_${master}_${slave}" --mlaz=${unwmlaz} --mlran=${unwmlran}  --odir="${interfdir}" --tmpdir=${procdir}/TEMP ${topleftxopt} ${topleftyopt}  >> "${procdir}"/log/unw_ortho_${master}_${slave}.log 2<&1
 		
 		local orthounw="${interfdir}/unw_${master}_${slave}_ortho.r4"
 		
@@ -1463,7 +1468,10 @@ function generate_ortho_interferogram()
     local aoidef=`grep "[0-9]" ${aoifile} | head -1`
     local roi=""
     local roiopt=""
-    
+    local topleftyopt=""
+    local topleftxopt=""
+    local tag=""
+
     if [ -e "${aoifile}" ] && [ -n "$aoidef" ] ; then
 	roi=$(geosar_get_aoi_coords2 "${smgeo}" "${aoidef}" "${procdir}/DAT/dem.dat"  "${procdir}/log/" )
 	local roist=$?
@@ -1476,6 +1484,11 @@ function generate_ortho_interferogram()
     ciop-log "INFO" "aoi roi defn : ${roi}"
     [ -n "${roi}" ] && {
     	roiopt="--roi=${roi}"
+	declare -a roiarr
+	roiarr=(`echo "${roi}" | sed 's@,@\n@g' | cut -f2 -d "="`)
+	topleftxopt="--topleftx="${roiarr[2]}
+	topleftyopt="--toplefty="${roiarr[0]}
+	tag="_cut"
     }
     
     local aoishape="${procdir}/AOI/AOI.shp"
@@ -1522,7 +1535,7 @@ function generate_ortho_interferogram()
     master=${interflist[0]}
     slave=${interflist[1]}
     
-    interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=1 --mlran=1  --winazi=${mlaz} --winran=${mlran}  --demdesc=${procdir}/DAT/dem.dat --coh --amp --dir="${interfdir}" --outdir="${interfdir}" --tmpdir=${procdir}/TEMP  --orthodir="${interfdir}" --nobort --noran --noinc --psfilt --psfiltx=${psfiltx}  > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}.log 2<&1
+    interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=1 --mlran=1  --winazi=${mlaz} --winran=${mlran}  --demdesc=${procdir}/DAT/dem.dat --coh --amp --dir="${interfdir}" --outdir="${interfdir}" --tmpdir=${procdir}/TEMP  --orthodir="${interfdir}" --nobort --noran --noinc --psfilt --psfiltx=${psfiltx} "${roiopt}"  > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}.log 2<&1
     local status=$?
     [ $status -ne 0 ] && {
 	ciop-log "ERROR" "Generation of interferogram ${interflist[0]} - ${interflist[1]} Failed"
@@ -1532,12 +1545,12 @@ function generate_ortho_interferogram()
     find ${procdir}/ORB -iname "*${interflist[0]}*.orb" -print -o -iname "*${interflist[1]}*.orb" -print | alt_ambig.pl --geosar=${smgeo}  -o ${interfdir}/AMBIG.DAT > /dev/null 2<&1
     
 	#ortho of the phase
-    ortho.pl --geosar=${smgeo} --in="${interfdir}/psfilt_pha_${master}_${slave}_ml11.rad" --demdesc="${ortho_dem}" --cplx  --tag="${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP   >> "${procdir}"/log/pha_ortho_${master}_${slave}.log 2<&1
+    ortho.pl --geosar=${smgeo} --in="${interfdir}/psfilt_pha${tag}_${master}_${slave}_ml11.rad" --demdesc="${ortho_dem}" --cplx  --tag="${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP "${topleftxopt}" "${topleftyopt}"   >> "${procdir}"/log/pha_ortho_${master}_${slave}.log 2<&1
 	#ortho of the coherence
-    ortho.pl --geosar=${smgeo} --in="${interfdir}/coh_${master}_${slave}_ml11.rad" --demdesc="${ortho_dem}" --tag="coh_${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP   >> "${procdir}"/log/coh_ortho_${master}_${slave}.log 2<&1
+    ortho.pl --geosar=${smgeo} --in="${interfdir}/coh${tag}_${master}_${slave}_ml11.rad" --demdesc="${ortho_dem}" --tag="coh_${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP "${topleftxopt}" "${topleftyopt}"  >> "${procdir}"/log/coh_ortho_${master}_${slave}.log 2<&1
 	#ortho of the amplitude
-    ortho.pl --geosar=${smgeo} --in="${interfdir}/amp_${master}_${slave}_ml11.rad" --demdesc="${ortho_dem}" --tag="amp_${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP  >> "${procdir}"/log/amp_ortho_${master}_${slave}.log 2<&1
-    
+    ortho.pl --geosar=${smgeo} --in="${interfdir}/amp${tag}_${master}_${slave}_ml11.rad" --demdesc="${ortho_dem}" --tag="amp_${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP "${topleftxopt}" "${topleftyopt}"  >> "${procdir}"/log/amp_ortho_${master}_${slave}.log 2<&1
+
 	#create geotiff
     ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --mask --alpha="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --colortbl=BLUE-RED  --demdesc="${ortho_dem}" --outfile="${interfdir}/pha_${master}_${slave}_ortho_rgb.tiff"  --tmpdir=${procdir}/TEMP  >> ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
     ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --mask --alpha="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --colortbl=BLACK-WHITE  --demdesc="${ortho_dem}" --outfile="${interfdir}/pha_${master}_${slave}_ortho.tiff"  --tmpdir=${procdir}/TEMP  >> ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
@@ -1554,10 +1567,10 @@ function generate_ortho_interferogram()
     local unwmlaz=` echo "${mlaz}*2" | bc -l`
     local unwmlran=` echo "${mlran}*2" | bc -l`
     if [[ "$unwrap" == "true" ]]; then
-	interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=${unwmlaz} --mlran=${unwmlran}    --demdesc=${procdir}/DAT/dem.dat --coh --amp --dir="${interfdir}" --outdir="${interfdir}" --tmpdir=${procdir}/TEMP  --orthodir="${interfdir}" --bort --noran --noinc --psfilt --psfiltx=${psfiltx}   > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}_unw.log 2<&1
+	interf_sar.pl --prog=interf_sar_SM --sm=${smgeo} --master=${mastergeo} --slave=${slavegeo} --ci2master=${masterci2} --ci2slave=${slaveci2} --mlaz=${unwmlaz} --mlran=${unwmlran}    --demdesc=${procdir}/DAT/dem.dat --coh --amp --dir="${interfdir}" --outdir="${interfdir}" --tmpdir=${procdir}/TEMP  --orthodir="${interfdir}" --bort --noran --noinc --psfilt --psfiltx=${psfiltx} "${roiopt}"   > ${procdir}/log/interf_${interflist[0]}_${interflist[1]}_unw.log 2<&1
 	
-	local inunw="${interfdir}"/psfilt_pha_${master}_${slave}_ml${unwmlaz}${unwmlran}.pha
-	local incoh="${interfdir}"/coh_${master}_${slave}_ml${unwmlaz}${unwmlran}.byt
+	local inunw="${interfdir}"/psfilt_pha${tag}_${master}_${slave}_ml${unwmlaz}${unwmlran}.pha
+	local incoh="${interfdir}"/coh${tag}_${master}_${slave}_ml${unwmlaz}${unwmlran}.byt
 	local outunw="${interfdir}"/unw_${master}_${slave}_ml${unwmlaz}${unwmlran}.byt
 	
 	local templatefile="/opt/diapason/gep.dir/snaphu_template.txt"
@@ -1566,10 +1579,9 @@ function generate_ortho_interferogram()
 	
 	runwrap.pl --geosar=${smgeo}  --phase="${inunw}" --coh="${incoh}"  --template="${templatefile}" --mlaz=${unwmlaz} --mlran=${unwmlran} --outfile=${outunw} --tmpdir=${procdir}/TEMP   >> ${procdir}/log/interf_${interflist[0]}_${interflist[1]}_unw.log 2<&1
 	
-	    #cat ${procdir}/log/interf_${interflist[0]}_${interflist[1]}_unw.log
 	
 	if [ -e "${outunw}" ]; then
-	    ortho.pl --real --geosar=${smgeo} --in="${outunw}" --demdesc="${ortho_dem}" --tag="unw_${master}_${slave}" --mlaz=${unwmlaz} --mlran=${unwmlran}  --odir="${interfdir}" --tmpdir=${procdir}/TEMP  >> "${procdir}"/log/unw_ortho_${master}_${slave}.log 2<&1
+	    ortho.pl --real --geosar=${smgeo} --in="${outunw}" --demdesc="${ortho_dem}" --tag="unw_${master}_${slave}" --mlaz=${unwmlaz} --mlran=${unwmlran}  --odir="${interfdir}" --tmpdir=${procdir}/TEMP  "${topleftxopt}" "${topleftyopt}" >> "${procdir}"/log/unw_ortho_${master}_${slave}.log 2<&1
 	    
 	    local orthounw="${interfdir}/unw_${master}_${slave}_ortho.r4"
 	    
