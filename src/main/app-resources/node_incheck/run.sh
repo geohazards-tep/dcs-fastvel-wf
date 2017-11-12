@@ -17,6 +17,8 @@ export PROPERTIES_FILE=$_CIOP_APPLICATION_PATH/properties/properties.xml
 #read global parameters
 mode=`ciop-getparam processing_mode`
 aoi=`ciop-getparam aoi`
+declare -a aoiarr
+aoiarr=($(echo "$aoi" | sed 's@,@ @g'))
 ref_lon=`ciop-getparam ref_point_lon`
 ref_lat=`ciop-getparam ref_point_lat`
 
@@ -65,6 +67,7 @@ ref_check ${aoishapefile} ${ref_lon} ${ref_lat} || {
 }
 
 #delete temporary folder
+cd 
 rm -rf "${dir}"
 
 #count the number of inputs
@@ -72,6 +75,13 @@ input_count=0;
 
 while read dataref
 do
+    wkt=($(opensearch-client -f atom "$dataref" wkt ))
+    if [ -n "$wkt" ]; then
+	check_polygon_aoi_intersection wkt[@] aoiarr[@] || {
+	    ciop-log "ERROR" "Image $dataref does not cross with aoi $aoi"
+	    continue
+}
+    fi
     let "input_count += 1"
     #input is passed as-is to next node
     echo $dataref | ciop-publish -s
@@ -81,5 +91,10 @@ done
 number_of_images_check ${input_count} "${PROPERTIES_FILE}"  ${mode} || {
     exit ${ERRGENERIC}
 }
+
+if [ $input_count -lt 2 ]; then
+    ciop-log "ERROR" "At least 2 valid images required"
+    exit ${ERRGENERIC}
+fi
 
 exit $SUCCESS

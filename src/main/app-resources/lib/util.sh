@@ -2288,3 +2288,88 @@ fi
 
 return ${SUCCESS}
 }
+
+
+
+# Public: Check whether polygon has an intersection
+# with an AOI
+#
+# Takes 1 polygon geometry definition and an 
+# aoi of the form "xmin,ymin,xmax,ymax"
+# for the intersection between the 2
+#
+# $1 - polygon geometry definition
+# $2 - aoi definition
+#
+# Examples
+#
+#  check_polygon_aoi_intersection wkt1[@] aoi[@]
+#
+# Returns 0 if the polygon and aoi intersect 
+# non-zero otherwise
+#   
+
+function check_polygon_aoi_intersection()
+{
+    if [ $# -lt 2 ]; then
+	ciop-log "ERROR" "$FUNCNAME:poly1 aoi"
+	return ${ERRMISSING}
+    fi
+
+    declare -a wkt1=("${!1}")
+    declare -a aoi=("${!2}")
+    
+    
+    /usr/bin/python - <<END
+import sys
+try:
+  from osgeo import ogr
+except ImportError:
+  sys.exit(0)
+
+wkt1="${wkt1[@]}"
+xmin=${aoi[0]}
+ymin=${aoi[1]}
+xmax=${aoi[2]}
+ymax=${aoi[3]}
+
+status=0
+  
+try:
+# Create spatial reference
+  out_srs = ogr.osr.SpatialReference()
+  out_srs.ImportFromEPSG(4326)
+
+  poly1 = ogr.CreateGeometryFromWkt(wkt1)
+  poly1.AssignSpatialReference(out_srs)
+  
+  ring = ogr.Geometry(ogr.wkbLinearRing)
+  ring.AddPoint(xmin,ymin)
+  ring.AddPoint(xmax,ymin)
+  ring.AddPoint(xmax,ymax)
+  ring.AddPoint(xmin,ymax)
+  ring.AddPoint(xmin,ymin)
+
+  #Create polygon
+  poly2 = ogr.Geometry(ogr.wkbPolygon)
+  poly2.AddGeometry(ring)
+
+
+  intersection=poly2.Intersection(poly1)
+
+  if intersection.IsEmpty():
+     status=1
+except Exception,e:
+  sys.exit(0)
+
+sys.exit( status )
+
+END
+local status=$?
+
+if [ $status -ne 0 ]; then
+    return ${ERRGENERIC}
+fi
+
+return $SUCCESS
+}
