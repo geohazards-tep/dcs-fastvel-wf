@@ -495,7 +495,7 @@ function cleanup_import_data()
 	return ${ERRMISSING}
     }
 
-    for data in `hadoop dfs -lsr "${remotedir}" | awk '{print $8}' | grep "\.SAFE$\|\.ci2$"`;do
+    for data in `hadoop dfs -lsr "${remotedir}" | awk '{print $8}' | grep "\.SAFE$\|\.ci2$\|\.N1$\|\.E[12]$\|\.gz"`;do
 	hadoop dfs -rmr "${data}" > /dev/null 2<&1
     done
 

@@ -1975,3 +1975,401 @@ function create_pngs_from_tif () {
 
   return ${SUCCESS}
 }
+
+
+# Public: verify the number of images
+# in the processing
+# 
+# Takes the application properties file , number of images
+# and processing mode as input
+# 
+#
+# $1 - the application properties file
+# $2 - a number representing the number of images in the processing
+# $3 - the processing mode ("MTA" or "IFG")
+#
+# Examples
+#
+#   number_of_images_check prperties_file nimages "MTA"
+#
+# Returns $SUCCESS when the number of images is suitable
+# for the processing
+#   
+function number_of_images_check() {
+    
+    if [ $# -lt 3 ]; then
+	return ${ERRMISSING}
+    fi
+
+    if [ -z "`type -p xmlstarlet`" ]; then
+	ciop-log "ERROR" "Missing binary xmlstarlet"
+	return $ERRMISSING
+    fi
+
+    local number_of_images="$1"
+    local properties_file="$2"
+    local processing_mode="$3"
+
+    minima=$(cat "${properties_file}" | xmlstarlet sel -t -v "//properties/minIma")
+    
+    if [ "$processing_mode" == "MTA" ]; then
+	if [ ${number_of_images} -lt $minima  ]; then
+	    ciop-log "ERROR" "Too few input images : ${number_of_images}. Minimum required : ${minima}"
+	    return ${ERRGENERIC}
+	fi
+    fi
+
+    return $SUCCESS
+}
+
+
+# Public: read a value from the global parameters file
+# 
+# 
+# Takes the parameter name and the workflow id as input 
+#
+# $1 - the parameter name
+# $2 - workflow id
+#
+# Examples
+#
+#   get_global_parameter "processing_mode" Wkid
+#
+# Returns $SUCCESS when the parameter was found 
+# 
+#   
+
+function get_global_parameter()
+{
+    if [ $# -lt 2 ]; then
+	echo ""
+	return $ERRMISSING
+    fi
+    
+    local param_name="$1"
+    local wkid="$2"
+    local global_param_file=`ciop-browseresults -r "${wkid}" -j node_incheck | grep -m1 global`
+    if [ -z "${global_param_file}" ]; then
+	ciop-log "ERROR" "Missing global parameters file in node_incheck"
+	return $ERRMISSING
+    fi
+    
+    local value=`hadoop dfs -cat ${global_param_file} | grep ${param_name} | cut -f2 -d "="`
+    if [ -z "${value}" ]; then
+	ciop-log "ERROR" "Parameter ${param_name} not found in ${global_param_file}"
+	return $ERRMISSING
+    fi
+    
+    echo $value
+    return $SUCCESS
+}
+
+function read_ortho_pixel_spacing()
+{
+    if [ $# -lt 3 ]; then
+	return $ERRMISSING
+    fi
+
+    local properties="$1"
+
+   [ -z "`type -p xmlstarlet`" ] && {
+	ciop-log "ERROR" "Missing xmlstarlet utility"
+	return ${ERRMISSING}
+    }
+
+   local pixelSpacingX=`cat ${properties} | xmlstarlet sel -t -v "//properties/orthoPixelSpacingX"`
+   
+   if [ -z "${pixelSpacingX}" ]; then
+       ciop-log "ERROR" "Unable to read orthoPixelSpacingX from ${properties}"
+       return $ERRMISSING
+   fi
+
+   local pixelSpacingY=`cat ${properties} | xmlstarlet sel -t -v "//properties/orthoPixelSpacingY"`
+   
+   if [ -z "${pixelSpacingY}" ]; then
+       ciop-log "ERROR" "Unable to read orthoPixelSpacingX from ${properties}"
+       return $ERRMISSING
+   fi
+ 
+   eval "$2=\"${pixelSpacingX}\""
+   eval "$3=\"${pixelSpacingY}\""
+   
+   return $SUCCESS
+}
+
+
+function create_interf_properties()
+{
+    if [ $# -lt 4 ]; then
+	echo "$FUNCNAME : usage:$FUNCNAME file description serverdir geosar"
+	return 1
+    fi
+
+    local inputfile=$1
+    local fbase=`basename ${inputfile}`
+    local description=$2
+    local serverdir=$3
+    local geosarm=$4
+    local geosars=""
+    if [ $# -ge 5 ]; then
+    geosars=$5
+    fi
+ 
+    if [ ! -e "${inputfile}" ]; then
+	ciop-log "INFO" "create_interf_properies:Missing file ${inputfile}"
+	return $ERRMISSING
+    fi
+   
+    local datestart=$(geosar_time "${geosarm}")
+    
+    local dateend=""
+    if [ -n "$geosars" ]; then
+	dateend=$(geosar_time "${geosars}")
+    fi
+
+    local propfile="${inputfile}.properties"
+    echo "title = FASTVEL-IFG - ${description} - ${datestart} ${dateend}" > "${propfile}"
+    echo "Description = ${description}" >> "${propfile}"
+    local sensor=`grep -h "SENSOR NAME" "${geosarm}" | cut -b 40-1024 | awk '{print $1}'`
+    echo "Sensor\ Name = ${sensor}" >> "${propfile}"
+    local masterid=$(geosartag ${geosarm})
+    if [ -n "${masterid}" ]; then
+	echo "Master\ SLC\ Product = ${masterid}" >> "${propfile}"
+    fi 
+    local slaveid=$(geosartag ${geosars})
+    if [ -n "${slaveid}" ]; then
+	echo "Slave\ SLC\ Product = ${slaveid}" >> "${propfile}"
+    fi 
+
+    #look for 2jd utility to convert julian dates
+    if [ -n "`type -p j2d`"  ] && [ -n "${geosars}" ]; then
+	local jul1=`grep -h JULIAN "${geosarm}" | cut -b 40-1024 | sed 's@[^0-9]@@g'`
+	local jul2=`grep -h JULIAN "${geosars}" | cut -b 40-1024 | sed 's@[^0-9]@@g'`
+	if [ -n "${jul1}"  ] && [ -n "${jul2}" ]; then 
+	
+	    local dates=""
+	    for jul in `echo -e "${jul1}\n${jul2}" | sort -n`; do
+		local julday=`echo "2433283+${jul}" | bc -l`
+		local dt=`j2d ${julday} | awk '{print $1}'`
+		
+		dates="${dates} ${dt}"
+	    done
+	   
+	fi
+	echo "Observation\ Dates = $dates" >> "${propfile}"
+	
+	local timeseparation=`echo "$jul1 - $jul2" | bc -l`
+	if [ $timeseparation -lt 0 ]; then
+	    timeseparation=`echo "$timeseparation*-1" | bc -l`
+	fi
+	
+	if [ -n "$timeseparation" ]; then
+	    echo "Time\ Separation\ \(days\) = ${timeseparation}" >> "${propfile}"
+	fi
+    fi
+
+    local altambig="${serverdir}/AMBIG.DAT"
+    if [ -e "${altambig}" ] ; then
+	local info=($(grep -E "^[0-9]+" "${altambig}" | head -1))
+	if [  ${#info[@]} -ge 6 ]; then
+	    #write incidence angle
+	    echo "Incidence\ angle\ \(degrees\) = "${info[2]} >> "${propfile}"
+	    #write baseline
+	    local bas=`echo ${info[4]} | awk '{ if($1>=0) {print $1} else { print $1*-1} }'`
+	    echo "Baseline\ \(meters\) = ${bas}" >> "${propfile}"
+	else
+	    echo "INFO" "Invalid format for AMBIG.DAT file "
+	fi
+    else
+	echo "INFO" "Missing AMBIG.DAT file in ${serverdir}/"
+    fi 
+    
+    local satpass=`grep -h "SATELLITE PASS" "${geosarm}"  | cut -b 40-1024 | awk '{print $1}'`
+    
+    if [ -n "${satpass}" ]; then
+	echo "Orbit\ Direction = ${satpass}" >> "${propfile}"
+    fi
+
+    local publishdate=`date +'%B %d %Y' `
+    echo "Processing\ Date  = ${publishdate}" >> "${propfile}"
+    
+    local logfile=`ls ${serverdir}/ortho_amp.log`
+    if [ -e "${logfile}" ]; then
+	local resolution=`grep "du mnt" "${logfile}" | cut -b 15-1024 | sed 's@[^0-9\.]@\n@g' | grep [0-9] | sort -n | tail -1`
+	if [ -n "${resolution}" ]; then
+	    echo "Resolution\ \(meters\) = ${resolution}" >> "${propfile}"
+	fi
+    fi
+    
+    local wktfile="${serverdir}/wkt.txt"
+    
+    if [ -e "${wktfile}" ]; then
+	local wkt=`head -1 "${wktfile}"`
+	echo "geometry = ${wkt}" >> "${propfile}"
+    fi
+}
+
+
+
+# Public: check whether reference point is inside
+# AOI defined by a shapefile
+# 
+# 
+# Takes the parameter name and the workflow id as input 
+#
+# $1 - aoi shapefile
+# $2 - reference point longitude
+# $3 - reference point latitude
+#
+# Examples
+#
+#   ref_check shapefile.shp "$ref_lon" $ref_lat 
+#
+# Returns $SUCCESS when the parameter was found 
+# 
+#   
+function ref_check(){
+
+    if [ $# -lt 3 ]; then
+	echo "Usage : $FUNC shapefile ref_lon ref_lat"
+	return ${ERRMISSING}
+    fi
+
+    local shapefile="$1"
+    local ref_lon="$2"
+    local ref_lat="$3"
+
+    /usr/bin/python <<EOF
+import sys
+try:
+  from osgeo import ogr
+except ImportError:
+  sys.exit(0)
+
+status=0
+
+try:
+  shapefile = "${shapefile}"
+  driver = ogr.GetDriverByName("ESRI Shapefile")
+  dataSource = driver.Open(shapefile,0)
+  layer = dataSource.GetLayer()
+
+  (xmin,xmax,ymin,ymax) = layer.GetExtent()
+
+  #ring
+  ring = ogr.Geometry(ogr.wkbLinearRing)
+  ring.AddPoint(xmin,ymin)
+  ring.AddPoint(xmax,ymin)
+  ring.AddPoint(xmax,ymax)
+  ring.AddPoint(xmin,ymax)
+  ring.AddPoint(xmin,ymin)
+
+  #Create polygon
+  polygon = ogr.Geometry(ogr.wkbPolygon)
+  polygon.AddGeometry(ring)
+
+  #point
+  pt = ogr.Geometry(ogr.wkbPoint)
+  pt.AddPoint($ref_lon,$ref_lat)
+  if not pt.Within(polygon):
+     status=1
+except Exception,e:
+  sys.exit(0)
+
+sys.exit(status)
+
+EOF
+
+local status=$?
+
+if [ $status -ne 0 ]; then
+    return ${ERRGENERIC}
+fi
+
+return ${SUCCESS}
+}
+
+
+
+# Public: Check whether polygon has an intersection
+# with an AOI
+#
+# Takes 1 polygon geometry definition and an 
+# aoi of the form "xmin,ymin,xmax,ymax"
+# for the intersection between the 2
+#
+# $1 - polygon geometry definition
+# $2 - aoi definition
+#
+# Examples
+#
+#  check_polygon_aoi_intersection wkt1[@] aoi[@]
+#
+# Returns 0 if the polygon and aoi intersect 
+# non-zero otherwise
+#   
+
+function check_polygon_aoi_intersection()
+{
+    if [ $# -lt 2 ]; then
+	ciop-log "ERROR" "$FUNCNAME:poly1 aoi"
+	return ${ERRMISSING}
+    fi
+
+    declare -a wkt1=("${!1}")
+    declare -a aoi=("${!2}")
+    
+    
+    /usr/bin/python - <<END
+import sys
+try:
+  from osgeo import ogr
+except ImportError:
+  sys.exit(0)
+
+wkt1="${wkt1[@]}"
+xmin=${aoi[0]}
+ymin=${aoi[1]}
+xmax=${aoi[2]}
+ymax=${aoi[3]}
+
+status=0
+  
+try:
+# Create spatial reference
+  out_srs = ogr.osr.SpatialReference()
+  out_srs.ImportFromEPSG(4326)
+
+  poly1 = ogr.CreateGeometryFromWkt(wkt1)
+  poly1.AssignSpatialReference(out_srs)
+  
+  ring = ogr.Geometry(ogr.wkbLinearRing)
+  ring.AddPoint(xmin,ymin)
+  ring.AddPoint(xmax,ymin)
+  ring.AddPoint(xmax,ymax)
+  ring.AddPoint(xmin,ymax)
+  ring.AddPoint(xmin,ymin)
+
+  #Create polygon
+  poly2 = ogr.Geometry(ogr.wkbPolygon)
+  poly2.AddGeometry(ring)
+
+
+  intersection=poly2.Intersection(poly1)
+
+  if intersection.IsEmpty():
+     status=1
+except Exception,e:
+  sys.exit(0)
+
+sys.exit( status )
+
+END
+local status=$?
+
+if [ $status -ne 0 ]; then
+    return ${ERRGENERIC}
+fi
+
+return $SUCCESS
+}

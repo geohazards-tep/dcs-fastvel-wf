@@ -9,6 +9,8 @@ source $_CIOP_APPLICATION_PATH/lib/util.sh  || {
     exit 255
 }
 
+#properties
+export PROPERTIES_FILE=$_CIOP_APPLICATION_PATH/properties/properties.xml
 
 source $_CIOP_APPLICATION_PATH/node_selection/functions.sh  || {
     ciop-log "ERROR" "Failed to source $_CIOP_APPLICATION_PATH/node_selection/functions.sh"
@@ -88,6 +90,22 @@ function main()
 	return ${ERRGENERIC}
     }
 
+        #number of images check
+    local nameslc=${serverdir}/TEMP/name_slc_auto.txt
+    if [ -e "${nameslc}" ]; then 
+	local number_of_images=`cat ${nameslc} | wc -l`
+	local mode=$(get_global_parameter  "processing_mode" "${wkid}")
+	
+    
+	number_of_images_check ${number_of_images} "${PROPERTIES_FILE}"  ${mode} || {
+	    procCleanup
+	
+	    echo ""
+	    exit ${ERRGENERIC}
+	}
+	
+    fi
+    
     #publish results of interf_selection
     local pubdir="${serverdir}/MASTER_SELECTION"
     ln -s "${serverdir}/TEMP" "${pubdir}"
@@ -209,8 +227,6 @@ function main()
 	fi
 	echo "${smtag}@${imagetag}" > ${stageout}
         echo "${smtag}@${imagetag}" | ciop-publish -s
-	####################TEST########################
-	#echo "${smtag}@${imagetag}" | ciop-publish -s
     done
     
     ciop-publish -a "${stageout}" || {
@@ -220,6 +236,7 @@ function main()
 	return ${ERRGENERIC}
     }
     
+
     procCleanup
     echo ${smtag}
     return ${SUCCESS}

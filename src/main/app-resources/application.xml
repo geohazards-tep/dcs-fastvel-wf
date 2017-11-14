@@ -1,10 +1,28 @@
 <?xml version="1.0" encoding="us-ascii"?>
 <application xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" id="fvel-insar">
   <jobTemplates>
+    <jobTemplate id="job_incheck">
+      <streamingExecutable>/application/node_incheck/run.sh</streamingExecutable>
+      <defaultParameters>
+	<parameter id="processing_mode" title="Processing Mode" abstract="Processing Mode" scope="runtime" minOccurs="0" maxOccurs="1">
+	  <options>
+	    <option>MTA</option>
+	    <option>IFG</option>
+	    <default>MTA</default>
+	  </options>
+	</parameter>
+	<parameter id="aoi" title="Area Of Interest" abstract="Restrict processing to selected area [minlon,minlat,maxlon,maxlat]."  scope="runtime"  target="geo:box" type="BoundingBoxData" minOccurs="1" maxOccurs="1"></parameter>
+	<parameter id="ref_point_lat" title="Reference Point Lattitude [deg]" abstract="Reference Point Lattitude" scope="runtime" minOccurs="1" maxOccurs="1"></parameter>
+	<parameter id="ref_point_lon" title="Reference Point Longitude [deg]" abstract="Reference Point Longitude" scope="runtime" minOccurs="1" maxOccurs="1"></parameter>
+      </defaultParameters>
+      <defaultJobconf>       
+	<property id="mapred.map.max.attempts">1</property>
+	<property id="ciop.job.max.tasks">1</property>
+      </defaultJobconf>
+    </jobTemplate>
     <jobTemplate id="job_import">
       <streamingExecutable>/application/node_import/run.sh</streamingExecutable>
       <defaultParameters>
-	<parameter id="aoi" title="Area Of Interest" abstract="Restrict processing to selected area [minlon,minlat,maxlon,maxlat]."  scope="runtime"  target="geo:box" type="BoundingBoxData" minOccurs="1" maxOccurs="1"></parameter>
 	<parameter id="pol" title="Polarization" abstract="Polarization" scope="test" maxOccurs="1">
 	  <options>
 	    <option>VV</option>
@@ -42,22 +60,36 @@
 	<property id="mapred.task.timeout">720000000</property>                      
       </defaultJobconf>
     </jobTemplate>
+    <jobTemplate id="job_preinterf">
+      <streamingExecutable>/application/node_preinterf/run.sh</streamingExecutable>
+      <defaultJobconf>       
+      <property id="mapred.map.max.attempts">1</property>
+      <property id="mapred.task.timeout">720000000</property>                      
+      </defaultJobconf>
+    </jobTemplate>
     <jobTemplate id="job_interf">
       <streamingExecutable>/application/node_interf/run.sh</streamingExecutable>
       <defaultParameters>
-      	<parameter id="ref_point_lat" title="Reference Point Lattitude [deg]" abstract="Reference Point Lattitude" scope="runtime" minOccurs="0" maxOccurs="1"></parameter>
-		<parameter id="ref_point_lon" title="Reference Point Longitude [deg]" abstract="Reference Point Longitude" scope="runtime" minOccurs="0" maxOccurs="1"></parameter>
-		<parameter id="processing_mode" title="Processing Mode" abstract="Processing Mode" scope="runtime" minOccurs="0" maxOccurs="1">
-			<options>
-				<option>MTA</option>
-				<option>IFG</option>
-				<default>MTA</default>
-			</options>
-		</parameter>
-        
-<!--         <parameter id="Goldstein_Weight" title="Goldstein Weight" abstract="Goldstein Weight" scope="runtime" minOccurs="0" maxOccurs="1">0.5</parameter> -->
+	<parameter id="psfiltx" title="Goldstein phase filter exponential factor" abstract="Phase filter exponential factor" scope="runtime" maxOccurs="1">0.5</parameter>
+	<parameter id="unwrap" title="Phase Unwrapping" abstract="Unwrap the interferograms (IFG mode)" scope="runtime" maxOccurs="1">
+	  <options>
+	    <option>true</option>
+	    <option>false</option>
+	    <default>false</default>
+	  </options>
+	</parameter>	
+      </defaultParameters>
+      <defaultJobconf>       
+	<property id="mapred.map.max.attempts">1</property>
+	<property id="mapred.task.timeout">720000000</property>                      
+      </defaultJobconf>
+    </jobTemplate>
+    <jobTemplate id="job_fastvel">
+      <streamingExecutable>/application/node_fastvel/run.sh</streamingExecutable>
+      <defaultParameters>
+      	
 		<parameter id="Coh_Threshold" title="Coherence Threshold" abstract="Coherence Threshold" scope="runtime" minOccurs="0" maxOccurs="1">0.5</parameter>
-        <parameter id="aps_smoothing" title="APS Correlation Distance [m]" abstract="APS Correlation Distance [m]" scope="runtime" minOccurs="0" maxOccurs="1">3000</parameter>
+        <parameter id="aps_smoothing" title="APS Correlation Distance [m]" abstract="APS Correlation Distance [m]" scope="runtime" minOccurs="0" maxOccurs="1">3000</parameter>	
 	<parameter id="publish_intermediate"  title="Publish Processing Intermediate Files" abstract="Keep Processing Intermediate Files" scope="test">false</parameter>
       </defaultParameters>
       <defaultJobconf>       
@@ -71,12 +103,17 @@
 
     <workflow id="fastvel" title="FASTVEL" abstract="FASTVEL algorithm has been developed by TRE-Altamira for generating differential interferograms or PSI-based mean displacement velocity maps from a set of Sentinel-1 or ASAR images" >
           <workflowVersion>1.0</workflowVersion>
+	  <node id="node_incheck">
+	    <job id="job_incheck" />
+	      <sources>
+		<source scope="runtime" id="datalist" title="SAR data set" abstract="Define the SAR data set" refid="string:list"></source>
+	      </sources>
+	  </node>
 	  <node id="node_import">
 	    <job id="job_import" />
 	    <sources>
-	      <source scope="runtime" id="datalist" title="SAR data set" abstract="Define the SAR data set" refid="string:list">
-	      </source>
-	    </sources>
+	      <source refid="wf:node">node_incheck</source>
+	  </sources>
 	  </node>
 	  <node id="node_selection">
 	    <job id="job_selection" />
@@ -90,10 +127,22 @@
 	      <source refid="wf:node">node_selection</source>
 	    </sources>
 	  </node>
-	  <node id="node_interf">
-	    <job id="job_interf" />
+	   <node id="node_preinterf">
+	    <job id="job_preinterf" />
 	    <sources>
 	      <source refid="wf:node">node_coreg</source>
+	    </sources>
+	  </node>
+	   <node id="node_interf">
+	    <job id="job_interf" />
+	    <sources>
+	      <source refid="wf:node">node_preinterf</source>
+	    </sources>
+	  </node>
+	   <node id="node_fastvel">
+	    <job id="job_fastvel" />
+	    <sources>
+	      <source refid="wf:node">node_interf</source>
 	    </sources>
 	  </node>
     </workflow>

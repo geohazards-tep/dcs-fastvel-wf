@@ -125,7 +125,7 @@ function main()
     echo "${prodtag}@${inref}" > ${serverdir}/DATASET/dataset.txt
 
     #write processing aoi if any
-    local aoi=`ciop-getparam aoi`
+    local aoi=$(get_global_parameter  "aoi" "${_WF_ID}")
     
     [ -n "${aoi}" ] && {
 	echo "${aoi}" > ${serverdir}/DAT/aoi.txt

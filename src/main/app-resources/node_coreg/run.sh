@@ -14,6 +14,11 @@ source $_CIOP_APPLICATION_PATH/node_coreg/functions.sh  || {
     exit 255
 }
 
+source $_CIOP_APPLICATION_PATH/node_selection/functions.sh  || {
+    ciop-log "ERROR" "Failed to source $_CIOP_APPLICATION_PATH/node_coreg/functions.sh"
+    exit 255
+}
+
 #properties
 export PROPERTIES_FILE=$_CIOP_APPLICATION_PATH/properties/properties.xml
 
@@ -104,7 +109,10 @@ done
 #clean master image from import node
 cleanup_import_data ${inputs[0]} "${_WF_ID}"
 
-
+#send something on stdin to next node
+create_lock "${_WF_ID}" "node_coreg" && {
+    echo "${inputs[0]}" | ciop-publish -s
+}
 #remove processing directory
 procCleanup
 
