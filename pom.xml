@@ -68,6 +68,9 @@
                     <require>gdalcrop</require>
                     <require>perl-DBD-SQLite</require>
                     <require>procmail</require>
+		    <require>wget</require>
+                    <require>python-pip</require>
+		    <require>python-devel</require>
                   </requires>
                 </configuration>
               </execution>
