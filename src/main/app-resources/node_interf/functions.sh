@@ -712,6 +712,18 @@ function publish_final_results_mta () {
 	    ciop-publish -m "${png}"
 	done
 
+	#publish csv
+	local ncsv=`ls ${pubdir}/*.csv | wc -l`
+	
+	if [ $ncsv -eq 0 ]; then
+	    ciop-log "ERROR" "csv results for mta not found"
+	    return ${ERRGENERIC}
+	fi
+
+  	for csv in `ls -1 $pubdir/*.csv`; do
+	    ciop-publish -m ${csv}
+  	done
+
   	return ${SUCCESS}
 }
 
