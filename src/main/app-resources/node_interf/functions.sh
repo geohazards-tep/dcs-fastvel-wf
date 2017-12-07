@@ -696,15 +696,19 @@ function publish_final_results_mta () {
 		return ${ERRMISSING}
 	fi
 
-	local ntifs=`ls ${pubdir}/*rgb.tif | wc -l`
+	local ntifs=`ls ${pubdir}/*.tif | wc -l`
 	
 	if [ $ntifs -eq 0 ]; then
 	    ciop-log "ERROR" "Geotiff results for mta not found"
 	    return ${ERRGENERIC}
 	fi
 
-	for result in `ls -1 $pubdir/*rgb.tif`; do
+	for result in `ls -1 $pubdir/*.tif`; do
 	    create_pngs_from_tif "${result}"
+	    ciop-publish -m ${result}
+  	done
+
+	for result in `ls -1 $pubdir/*.legend.png`; do
 	    ciop-publish -m ${result}
   	done
 
