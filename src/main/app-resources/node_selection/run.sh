@@ -27,7 +27,7 @@ export exedir=${EXE_DIR}
 export datdir=${DAT_DIR}
 
 #IDL License
-export LM_LICENSE_FILE=1700@idl.terradue.int
+export LM_LICENSE_FILE=1700@idl.terradue.com
 
 #read parameters
 export btempmax=`ciop-getparam btemp_max`
