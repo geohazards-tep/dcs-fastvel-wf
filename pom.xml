@@ -11,7 +11,7 @@
     <version>2.1.0-docker-SNAPSHOT</version>
   </parent>
   <description>FASTVEL algorithm has been developed by TRE-Altamira for generating differential interferograms or PSI-based mean displacement velocity maps from a set of Sentinel-1 or ASAR images</description>
-  <version>1.1</version>
+  <version>1.2-SNAPSHOT</version>
   <properties>
     <summary>FASTVEL algorithm has been developed by TRE-Altamira for generating differential interferograms or PSI-based mean displacement velocity maps from a set of Sentinel-1 or ASAR images</summary>
     <description>FASTVEL algorithm has been developed by TRE-Altamira for generating differential interferograms or PSI-based mean displacement velocity maps from a set of Sentinel-1 or ASAR images</description>
@@ -28,10 +28,10 @@
     <profile>
       <id>package-app</id>
       <activation>
-        <property>
-          <name>env</name>
-          <value>ci</value>
-        </property>
+         <property>
+           <name>env</name>
+           <value>ci</value>
+         </property>
       </activation>
       <build>
         <plugins>
@@ -66,11 +66,10 @@
                     <require>perl-DBI</require>
                     <require>perl-DBD-SQLite</require>
                     <require>gdalcrop</require>
-                    <require>perl-DBD-SQLite</require>
-                    <require>procmail</require>
 		    <require>wget</require>
                     <require>python-pip</require>
 		    <require>python-devel</require>
+		    <require>procmail</require>
                   </requires>
                 </configuration>
               </execution>

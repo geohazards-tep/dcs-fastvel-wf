@@ -463,7 +463,7 @@ function compute_precise_sm()
 	#update geosar file in node import
 	local remotegeosar="${remotedir}/DAT/GEOSAR/${orbsm}.geosar"
 	local updatedgeosar="${procdir}/DAT/GEOSAR/${orbsm}.geosar"
-	hadoop dfs -rm ${remotegeosar} > /dev/null 2<&1
+	hadoop dfs -rm ${remotegeosar} 1>&2
 	hadoop dfs -put ${updatedgeosar} ${remotedir}/DAT/GEOSAR/
     else
 	local msg=`cat ${procdir}/log/precise_sm.log`
