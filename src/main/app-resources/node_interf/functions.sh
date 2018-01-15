@@ -1631,11 +1631,8 @@ function generate_ortho_interferogram()
     wkt=$(tiff2wkt "${interfdir}/coh_${master}_${slave}_ortho.tiff")
     echo ${wkt} > ${interfdir}/wkt.txt
     
-    create_interf_properties "${interfdir}/coh_${master}_${slave}_ortho.tiff" "Interferometric Coherence" "${interfdir}" "${mastergeo}" "${slavegeo}"
     create_interf_properties "${interfdir}/coh_${master}_${slave}_ortho.png" "Interferometric Coherence - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"
-    create_interf_properties "${interfdir}/amp_${master}_${slave}_ortho.tiff" "Interferometric Amplitude" "${interfdir}" "${mastergeo}" "${slavegeo}"
     create_interf_properties "${interfdir}/amp_${master}_${slave}_ortho.png" "Interferometric Amplitude - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"
-    create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho.tiff" "Interferometric Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
 	#create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho.png" "Interferometric Phase - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"
 	#create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho_rgb.tiff" "Interferometric Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
     create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho_rgb.png" "Interferometric Phase - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"	
@@ -1650,7 +1647,17 @@ function generate_ortho_interferogram()
 	rm -f "${interfdir}/unw_${master}_${slave}_ortho.png"
     fi
     
-    for f in `find "${interfdir}" -iname "*.png" -print -o -iname "*.properties" -print -o -iname "*.tiff" -print`;do
+    #create .zip file with the geotiff results
+    local zipfile="${interfdir}/interf_${master}_${slave}_ortho.zip"
+    local tiffs=(`ls -1d ${interfdir}/*.tiff`)
+    zip -j "${zipfile}" "`ls -1d ${interfdir}/*.tiff`" ${tiffs[@]}
+    
+    #delete tiff properties files
+    rm -f ${interfdir}/*.tiff.properties
+
+    create_interf_properties "${zipfile}" "Results Archive" "${interfdir}" "${mastergeo}" "${slavegeo}"
+    
+    for f in `find "${interfdir}" -iname "*.png" -print -o -iname "*.properties" -print -o -iname "*.zip" -print`;do
 	ciop-publish -m "$f"
     done
     
