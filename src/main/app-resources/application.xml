@@ -12,8 +12,8 @@
 	  </options>
 	</parameter>
 	<parameter id="aoi" title="Area Of Interest" abstract="Restrict processing to selected area [minlon,minlat,maxlon,maxlat]."  scope="runtime"  target="geo:box" type="BoundingBoxData" minOccurs="1" maxOccurs="1"></parameter>
-	<parameter id="ref_point_lat" title="Reference Point Lattitude [deg]" abstract="Reference Point Lattitude" scope="runtime" minOccurs="1" maxOccurs="1"></parameter>
-	<parameter id="ref_point_lon" title="Reference Point Longitude [deg]" abstract="Reference Point Longitude" scope="runtime" minOccurs="1" maxOccurs="1"></parameter>
+	<parameter id="ref_point_lat" title="Reference Point Lattitude [deg]" abstract="Reference Point Lattitude" scope="runtime" minOccurs="0" maxOccurs="1"></parameter>
+	<parameter id="ref_point_lon" title="Reference Point Longitude [deg]" abstract="Reference Point Longitude" scope="runtime" minOccurs="0" maxOccurs="1"></parameter>
       </defaultParameters>
       <defaultJobconf>       
 	<property id="mapred.map.max.attempts">1</property>
