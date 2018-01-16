@@ -138,7 +138,7 @@ function main()
 
         erhfile=$(${pubdir}/output_fastvel/Final_Results/*Erh.tif)
 
-        create_fastvel_properties "${erhfile}" "Velocity map (cm/year)" "${orbitdir}" "${incid}" "${sensor}"
+        create_fastvel_properties "${erhfile}" "Topography map (meters)" "${orbitdir}" "${incid}" "${sensor}"
 
         publish_final_results_mta "${pubdir}/output_fastvel/Final_Results"
 	local fvel_status=$?
