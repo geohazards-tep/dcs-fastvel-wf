@@ -696,21 +696,37 @@ function publish_final_results_mta () {
 		return ${ERRMISSING}
 	fi
 
-	local ntifs=`ls ${pubdir}/*rgb.tif | wc -l`
+	local ntifs=`ls ${pubdir}/*.tif | wc -l`
 	
 	if [ $ntifs -eq 0 ]; then
 	    ciop-log "ERROR" "Geotiff results for mta not found"
 	    return ${ERRGENERIC}
 	fi
 
-	for result in `ls -1 $pubdir/*rgb.tif`; do
+	for result in `ls -1 $pubdir/*.tif`; do
 	    create_pngs_from_tif "${result}"
+	    ciop-publish -m ${result}
+  	done
+
+	for result in `ls -1 $pubdir/*.legend.png`; do
 	    ciop-publish -m ${result}
   	done
 
 	for png in `find ${pubdir} -maxdepth 1  -name "*.png" -print -o -name "*.pngw" -print`; do
 	    ciop-publish -m "${png}"
 	done
+
+	#publish csv
+	local ncsv=`ls ${pubdir}/*.csv | wc -l`
+	
+	if [ $ncsv -eq 0 ]; then
+	    ciop-log "ERROR" "csv results for mta not found"
+	    return ${ERRGENERIC}
+	fi
+
+  	for csv in `ls -1 $pubdir/*.csv`; do
+	    ciop-publish -m ${csv}
+  	done
 
   	return ${SUCCESS}
 }
@@ -908,7 +924,7 @@ function generate_ortho_interferograms()
 
 	#create geotiff
 	ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --mask --alpha="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --colortbl=BLUE-RED  --demdesc="${ortho_dem}" --outfile="${interfdir}/pha_${master}_${slave}_ortho_rgb.tiff"  --tmpdir=${procdir}/TEMP  >> ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
-	ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --mask --alpha="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --colortbl=BLACK-WHITE  --demdesc="${ortho_dem}" --outfile="${interfdir}/pha_${master}_${slave}_ortho.tiff"  --tmpdir=${procdir}/TEMP  >> ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
+	ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"   --demdesc="${ortho_dem}" --outfile="${interfdir}/pha_${master}_${slave}_ortho.tiff"  --tmpdir=${procdir}/TEMP  >> ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
 	ortho2geotiff.pl --ortho="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --demdesc="${ortho_dem}"  --colortbl=BLACK-WHITE --mask   --outfile="${interfdir}/amp_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/amp_ortho_${master}_${slave}.log 2<&1
 	ortho2geotiff.pl --ortho="${interfdir}/coh_${master}_${slave}_ml11_ortho.rad" --demdesc="${ortho_dem}" --outfile="${interfdir}/coh_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/coh_ortho_${master}_${slave}.log 2<&1
 	ln -s ${procdir}/log/amp_ortho_${master}_${slave}.log ${interfdir}/ortho_amp.log
@@ -1553,8 +1569,8 @@ function generate_ortho_interferogram()
 
 	#create geotiff
     ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --mask --alpha="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --colortbl=BLUE-RED  --demdesc="${ortho_dem}" --outfile="${interfdir}/pha_${master}_${slave}_ortho_rgb.tiff"  --tmpdir=${procdir}/TEMP  >> ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
-    ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --mask --alpha="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --colortbl=BLACK-WHITE  --demdesc="${ortho_dem}" --outfile="${interfdir}/pha_${master}_${slave}_ortho.tiff"  --tmpdir=${procdir}/TEMP  >> ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
-    ortho2geotiff.pl --ortho="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --demdesc="${ortho_dem}"  --colortbl=BLACK-WHITE --mask   --outfile="${interfdir}/amp_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/amp_ortho_${master}_${slave}.log 2<&1
+    ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --demdesc="${ortho_dem}" --outfile="${interfdir}/pha_${master}_${slave}_ortho.tiff"  --tmpdir=${procdir}/TEMP  >> ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
+    ortho2geotiff.pl --ortho="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --demdesc="${ortho_dem}"  --gep  --colortbl=BLACK-WHITE --mask  --alpha="${interfdir}/coh_${master}_${slave}_ml11_ortho.rad" --min=5  --outfile="${interfdir}/amp_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/amp_ortho_${master}_${slave}.log 2<&1
     ortho2geotiff.pl --ortho="${interfdir}/coh_${master}_${slave}_ml11_ortho.rad" --demdesc="${ortho_dem}" --outfile="${interfdir}/coh_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/coh_ortho_${master}_${slave}.log 2<&1
     ln -s ${procdir}/log/amp_ortho_${master}_${slave}.log ${interfdir}/ortho_amp.log
     if [ ! -e "${interfdir}/pha_${master}_${slave}_ml11_ortho.pha" ]; then
@@ -1615,11 +1631,8 @@ function generate_ortho_interferogram()
     wkt=$(tiff2wkt "${interfdir}/coh_${master}_${slave}_ortho.tiff")
     echo ${wkt} > ${interfdir}/wkt.txt
     
-    create_interf_properties "${interfdir}/coh_${master}_${slave}_ortho.tiff" "Interferometric Coherence" "${interfdir}" "${mastergeo}" "${slavegeo}"
     create_interf_properties "${interfdir}/coh_${master}_${slave}_ortho.png" "Interferometric Coherence - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"
-    create_interf_properties "${interfdir}/amp_${master}_${slave}_ortho.tiff" "Interferometric Amplitude" "${interfdir}" "${mastergeo}" "${slavegeo}"
     create_interf_properties "${interfdir}/amp_${master}_${slave}_ortho.png" "Interferometric Amplitude - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"
-    create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho.tiff" "Interferometric Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
 	#create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho.png" "Interferometric Phase - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"
 	#create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho_rgb.tiff" "Interferometric Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
     create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho_rgb.png" "Interferometric Phase - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"	
@@ -1634,7 +1647,17 @@ function generate_ortho_interferogram()
 	rm -f "${interfdir}/unw_${master}_${slave}_ortho.png"
     fi
     
-    for f in `find "${interfdir}" -iname "*.png" -print -o -iname "*.properties" -print -o -iname "*.tiff" -print`;do
+    #create .zip file with the geotiff results
+    local zipfile="${interfdir}/interf_${master}_${slave}_ortho.zip"
+    local tiffs=(`ls -1d ${interfdir}/*.tiff`)
+    zip -j "${zipfile}" "`ls -1d ${interfdir}/*.tiff`" ${tiffs[@]}
+    
+    #delete tiff properties files
+    rm -f ${interfdir}/*.tiff.properties
+
+    create_interf_properties "${zipfile}" "Results Archive" "${interfdir}" "${mastergeo}" "${slavegeo}"
+    
+    for f in `find "${interfdir}" -iname "*.png" -print -o -iname "*.properties" -print -o -iname "*.zip" -print`;do
 	ciop-publish -m "$f"
     done
     

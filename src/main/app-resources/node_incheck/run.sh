@@ -22,6 +22,18 @@ aoiarr=($(echo "$aoi" | sed 's@,@ @g'))
 ref_lon=`ciop-getparam ref_point_lon`
 ref_lat=`ciop-getparam ref_point_lat`
 
+#reference point should be set only in IFG mode
+if [[ "${mode}" == "MTA" ]]; then
+    if [ -z "${ref_lon}" ]; then
+	ciop-log "ERROR" "Reference point longitude is not set "
+	exit $ERRMISSING
+    fi
+    
+    if [ -z "${ref_lat}" ]; then
+	ciop-log "ERROR" "Reference point latitude is not set "
+	exit $ERRMISSING
+    fi
+fi
 
 dir=$(mktemp -d "${TMPDIR}/glob_param_XXXXXX")
 
@@ -58,13 +70,15 @@ ciop-publish -a "${glob_param_file}" || {
 	exit ${ERRGENERIC}
 }
 
-#check ref point is inside aoi
-ref_check ${aoishapefile} ${ref_lon} ${ref_lat} || {
-    ciop-log "ERROR" "Reference point is not within area of interest"
-    echo ""
-    rm -rf ${dir}
-    exit ${ERRINVALID}
-}
+if [[ "${mode}" == "MTA" ]]; then
+    #check ref point is inside aoi
+    ref_check ${aoishapefile} ${ref_lon} ${ref_lat} || {
+	ciop-log "ERROR" "Reference point is not within area of interest"
+	echo ""
+	rm -rf ${dir}
+	exit ${ERRINVALID}
+    }    
+fi
 
 #delete temporary folder
 cd 
