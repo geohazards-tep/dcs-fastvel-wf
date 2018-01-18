@@ -58,7 +58,55 @@ function import_interfs()
     return $SUCCESS;
 }
 
+# Public: get configuration parameter of file
 
+# The function takes as arguments a file and a tag
+# and search the tag on the file and returns the value 
+# assigned to that tag. File must be of the form "TAG VALUE"
+# example  SATELLITE_PASS  DESCENDING
+# $1 - file
+# $2 - tag
+function get_conf_parameter(){
+    local conffile="$1"
+    local tag="$2"
+    local line=$(grep "${tag}" "$conffile")
+    local array=(${line// / })
+    echo ${array[1]}
+}
+
+
+# Public: creates the properties files for Vel and Erh products
+
+# The function takes as arguments the input file, the message title, orbit Direction
+# incidence angle and sensor name and creates a properties file for the input file.
+
+# $1 - input file
+# $2 - message title
+# $3 - orbit Direction
+# $4 incidence angle
+# $5 - snesor name
+function create_fastvel_properties() {
+    local inputfile="$1"
+    local message="$2"
+    local orbitdir="$3"
+    local incid="$4"
+    local sensor="$5"
+
+    local bname=$(basename "$inputfile")
+    local propfile="${inputfile}.properties"
+    echo "title = FASTVEL-MTA - ${message}" > "${propfile}"
+    if [[ "$bname" == *"S1A"* ]]; then
+        echo "Sensor name = Sentinel - 1" >> "${propfile}"
+    else echo "Sensor name = ${sensor}" >> "${propfile}"
+    fi
+    echo "Orbit Direction = ${orbitdir}" >> "${propfile}"
+    echo "Incidence Angle = ${incid}" >> "${propfile}"
+    echo "Orbit Direction = ${orbitdir}" >> "${propfile}"
+
+    local date_proc=$(date +%Y-%m-%d)
+    echo "Processing Date = ${date_proc}" >> "${propfile}"
+    ciop-publish -m ${propfile}
+}
 
 # Public: fastvel pre processing
 # 

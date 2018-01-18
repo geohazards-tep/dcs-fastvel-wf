@@ -126,6 +126,20 @@ function main()
     if [[ "$mode" == "MTA" ]]; then
         generate_fast_vel_conf "${pubdir}"
         execute_fast_vel "${TMPDIR}" "${pubdir}"
+        fvelconf="${pubdir}/DAT/fastvel.conf"
+
+        orbitdir=$(get_conf_parameter "${fvelconf}" "SATELLITE_PASS")
+        incid=$(get_conf_parameter "${fvelconf}" "INCIDENCE_ANGLE")
+        sensor=$(get_conf_parameter "${fvelconf}" "SENSOR_NAME")
+
+        velfile=$(${pubdir}/output_fastvel/Final_Results/*Vel.tif)
+
+        create_fastvel_properties "${velfile}" "Velocity map (cm/year)" "${orbitdir}" "${incid}" "${sensor}"
+
+        erhfile=$(${pubdir}/output_fastvel/Final_Results/*Erh.tif)
+
+        create_fastvel_properties "${erhfile}" "Topography map (meters)" "${orbitdir}" "${incid}" "${sensor}"
+
         publish_final_results_mta "${pubdir}/output_fastvel/Final_Results"
 	local fvel_status=$?
 	if [ ${fvel_status} -ne 0 ]; then
