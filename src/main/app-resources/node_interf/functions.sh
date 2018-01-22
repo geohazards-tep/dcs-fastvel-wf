@@ -1633,27 +1633,33 @@ function generate_ortho_interferogram()
     
     create_interf_properties "${interfdir}/coh_${master}_${slave}_ortho.png" "Interferometric Coherence - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"
     create_interf_properties "${interfdir}/amp_${master}_${slave}_ortho.png" "Interferometric Amplitude - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"
-	#create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho.png" "Interferometric Phase - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"
-	#create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho_rgb.tiff" "Interferometric Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
-    create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho_rgb.png" "Interferometric Phase - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"	
+	
+    create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho_rgb.png" "Interferometric Phase - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"
     
-    rm "${interfdir}/pha_${master}_${slave}_ortho.png"
+    create_interf_properties "${interfdir}/amp_${master}_${slave}_ortho.tiff" "Interferometric Amplitude" "${interfdir}" "${mastergeo}" "${slavegeo}"
+
+    create_interf_properties "${interfdir}/coh_${master}_${slave}_ortho.tiff" "Interferometric Coherence" "${interfdir}" "${mastergeo}" "${slavegeo}"
+    
+    create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho.tiff" "Interferometric Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
+    
+    #rm "${interfdir}/pha_${master}_${slave}_ortho.png"
     rm "${interfdir}/pha_${master}_${slave}_ortho_rgb.tiff"
+    rm "${interfdir}/pha_${master}_${slave}_ortho.png"
     
-	#
+	
     if [[ "$unwrap" == "true" ]]; then
-	    #"
+	
 	create_interf_properties "${interfdir}/unw_${master}_${slave}_ortho.tiff" "Unwrapped Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
 	rm -f "${interfdir}/unw_${master}_${slave}_ortho.png"
     fi
-    
+
+    #delete tiff properties files
+    find ${interfdir}/ -name "*.tiff.properties" -exec rm '{}' \;
+
     #create .zip file with the geotiff results
     local zipfile="${interfdir}/interf_${master}_${slave}_ortho.zip"
-    local tiffs=(`ls -1d ${interfdir}/*.tiff`)
-    zip -j "${zipfile}" "`ls -1d ${interfdir}/*.tiff`" ${tiffs[@]}
-    
-    #delete tiff properties files
-    rm -f ${interfdir}/*.tiff.properties
+    find "${interfdir}"  -name "*.tif*" -print | zip -j -@ "${zipfile}"  
+   
 
     create_interf_properties "${zipfile}" "Results Archive" "${interfdir}" "${mastergeo}" "${slavegeo}"
     

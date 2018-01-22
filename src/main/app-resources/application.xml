@@ -101,7 +101,7 @@
 
   </jobTemplates>
 
-    <workflow id="fastvel" title="FASTVEL" abstract="FASTVEL algorithm has been developed by TRE-Altamira for generating differential interferograms or PSI-based mean displacement velocity maps from a set of Sentinel-1 or ASAR images" >
+    <workflow id="fastvel" title="FASTVEL" abstract="FASTVEL algorithm has been developed by TRE-Altamira for generating differential interferograms (IFG mode) or PSI-based mean displacement velocity maps (MTA mode) from a set of Sentinel-1 (SM or IW) or ASAR images (RAW and SLC) or ERS (RAW AND SLC) images" >
           <workflowVersion>1.0</workflowVersion>
 	  <node id="node_incheck">
 	    <job id="job_incheck" />
