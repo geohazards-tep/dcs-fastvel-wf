@@ -145,12 +145,12 @@ function run_selection()
     #set parameters inputs from the user if any
     if [ -n "${btempmax}" ]; then
 	export BTEMP_MAX_IN="${btempmax}"
-	ciop-log "INFO" "Maximum perpendicular baseline : ${BTEMP_MAX_IN}"
+	ciop-log "INFO" "Maximum temporal baseline : ${BTEMP_MAX_IN}"
     fi
 
     if [ -n "${bperpmax}" ]; then
 	export BPERP_MAX_IN="${bperpmax}"
-	ciop-log "INFO" "Maximum temporal baseline : ${BPERP_MAX_IN}"
+	ciop-log "INFO" "Maximum perpendicular baseline : ${BPERP_MAX_IN}"
     fi 
 
     if [ -n "${dopdiffmax}" ]; then

@@ -132,13 +132,18 @@ function main()
         incid=$(get_conf_parameter "${fvelconf}" "INCIDENCE_ANGLE")
         sensor=$(get_conf_parameter "${fvelconf}" "SENSOR_NAME")
 
-        velfile=$(${pubdir}/output_fastvel/Final_Results/*Vel.tif)
+        velfile=$(ls -1 ${pubdir}/output_fastvel/Final_Results/*Vel.tif)
+        velrgbfile=$(ls -1 ${pubdir}/output_fastvel/Final_Results/*Vel.rgb.tif)
+
 
         create_fastvel_properties "${velfile}" "Velocity map (cm/year)" "${orbitdir}" "${incid}" "${sensor}"
+        create_fastvel_properties "${velrgbfile}" "Velocity map (cm/year)" "${orbitdir}" "${incid}" "${sensor}"
 
-        erhfile=$(${pubdir}/output_fastvel/Final_Results/*Erh.tif)
+        erhfile=$(ls -1 ${pubdir}/output_fastvel/Final_Results/*Erh.tif)
+        erhrgbfile=$(ls -1 ${pubdir}/output_fastvel/Final_Results/*Erh.tif)
 
-        create_fastvel_properties "${erhfile}" "Velocity map (cm/year)" "${orbitdir}" "${incid}" "${sensor}"
+        create_fastvel_properties "${erhfile}" "Topography map (meters)" "${orbitdir}" "${incid}" "${sensor}"
+        create_fastvel_properties "${erhrgbfile}" "Topography map (meters)" "${orbitdir}" "${incid}" "${sensor}"
 
         publish_final_results_mta "${pubdir}/output_fastvel/Final_Results"
 	local fvel_status=$?
