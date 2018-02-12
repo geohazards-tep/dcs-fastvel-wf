@@ -1826,7 +1826,11 @@ function geosar_get_aoi_coords2()
     
     local coordsfile=${tmpdir_}/aoi2sarcoords.txt
 
-    aoi2coords.pl --geosar="${geosar}" --demdesc="${dem}" --minlon=${aoi[0]} --minlat=${aoi[1]} --maxlon=${aoi[2]} --maxlat=${aoi[3]} --outfile="${coordsfile}" > ${tmpdir_}/aoi2coords.log 2<&1
+    #aoi2coords.pl --geosar="${geosar}" --demdesc="${dem}" --minlon=${aoi[0]} --minlat=${aoi[1]} --maxlon=${aoi[2]} --maxlat=${aoi[3]} --outfile="${coordsfile}" > ${tmpdir_}/aoi2coords.log 2<&1
+    
+    echo "aoi2coords.pl --geosar=\"${geosar}\" --demdesc=\"${dem}\" --minlon=${aoi[0]} --minlat=${aoi[1]} --maxlon=${aoi[2]} --maxlat=${aoi[3]} --outfile=\"${coordsfile}\""
+    
+    aoi2coords.pl --geosar="${geosar}" --demdesc="${dem}" --minlon=${aoi[0]} --minlat=${aoi[1]} --maxlon=${aoi[2]} --maxlat=${aoi[3]} --outfile="${coordsfile}"
     
     if [ ! -e "${coordsfile}" ]; then
 	ciop-log "INFO" "$FUNCTION aoi2coords fail"
