@@ -588,7 +588,8 @@ function run_coreg_stripmap()
     
     #run registration process
     local procoutput=${procdir}/log/coreg_${orbslave}.log 
-    coreg_all.pl --list=${orbitlist} --serverdir=${procdir} --griddir=${procdir}/GRID --gridlindir=${procdir}/GRID_LIN --grids --demdesc=${demdesc} --sm=${orbsm} --tmpdir=${procdir}/TEMP --nocachedem --nocache --linear --interpx=${interpx} --mlaz=${mlaz} --mlran=${mlran} > ${procoutput} 2<&1
+    #coreg_all.pl --list=${orbitlist} --serverdir=${procdir} --griddir=${procdir}/GRID --gridlindir=${procdir}/GRID_LIN --grids --demdesc=${demdesc} --sm=${orbsm} --tmpdir=${procdir}/TEMP --nocachedem --nocache --linear --interpx=${interpx} --mlaz=${mlaz} --mlran=${mlran} > ${procoutput} 2<&1
+    coreg_all.pl --list=${orbitlist} --serverdir=${procdir} --griddir=${procdir}/GRID --gridlindir=${procdir}/GRID_LIN --grids --demdesc=${demdesc} --sm=${orbsm} --tmpdir=${procdir}/TEMP --nocachedem --nocache --linear --interpx=${interpx} --mlaz=${mlaz} --mlran=${mlran}
     local status=$?
     
     if [ $status -ne 0 ]; then
