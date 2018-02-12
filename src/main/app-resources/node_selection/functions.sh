@@ -464,7 +464,7 @@ function compute_precise_sm()
 	local remotegeosar="${remotedir}/DAT/GEOSAR/${orbsm}.geosar"
 	local updatedgeosar="${procdir}/DAT/GEOSAR/${orbsm}.geosar"
 	hadoop dfs -rm ${remotegeosar} 1>&2
-	hadoop dfs -put ${updatedgeosar} ${remotedir}/DAT/GEOSAR/
+	hadoop dfs -put -f ${updatedgeosar} ${remotedir}/DAT/GEOSAR/
     else
 	local msg=`cat ${procdir}/log/precise_sm.log`
 	ciop-log "DEBUG" "${msg}"
