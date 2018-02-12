@@ -43,6 +43,7 @@ export serverdir=`mktemp -d ${TMPDIR}/node_coreg_XXXXXX`  || {
 
 mkdir -p ${serverdir}/CD 
 mkdir -p ${serverdir}/DAT
+mkdir -p ${serverdir}/TEMP
 #
 import_data_from_previous_nodes "${serverdir}" ${_WF_ID} || {
     ciop-log "ERROR" "Failed to import data from previous nodes"
