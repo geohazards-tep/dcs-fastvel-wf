@@ -84,7 +84,7 @@ function main()
     
 
     #ingest product
-    for prod in `find "${serverdir}/CD" -type d -iname "*.SAFE" -print -o -iname "*.tar" -print -o -iname "*.tgz" -print -o -iname "*.zip" -print -o -iname "*.N1" -print -o -iname "*.E[12]" -print`; do
+    for prod in `find "${serverdir}/CD" -type d -iname "*.SAFE" -print -o -iname "*.tar" -print -o -iname "*.tgz" -print -o -iname "*.zip" -print -o -iname "*.N1" -print -o -iname "*.E[12]" -print -o -iname "*.gz" -print`; do
 	ciop-log "INFO" "Ingesting product $prod"
 	#TO-DO ml parm fom config , pol from param
 	ext2dop "${prod}" "${serverdir}" 2 8 "${pol}"
