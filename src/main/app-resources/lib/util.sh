@@ -192,6 +192,45 @@ fi
 return ${SUCCESS}
 }
 
+# Retries a command a with backoff.
+#
+# The retry count is given by ATTEMPTS (default 5), the
+# initial backoff timeout is given by TIMEOUT in seconds
+# (default 1.)
+#
+# Successive backoffs double the timeout.
+#
+# Beware of set -e killing your whole script!
+function with_backoff {
+  local max_attempts=${ATTEMPTS-5}
+  local timeout=${TIMEOUT-1}
+  local attempt=0
+  local exitCode=0
+
+  while [[ $attempt < $max_attempts ]]
+  do
+    "$@"
+    exitCode=$?
+
+    if [[ $exitCode == 0 ]]
+    then
+      break
+    fi
+
+    sleep $timeout
+    attempt=$(( attempt + 1 ))
+    timeout=$(( timeout * 2 ))
+    ciop-log "INFO" "${FUNCNAME[0]} failed for $@. Attempt ${attempt}/${max_attempts}"
+  done
+
+  if [[ $exitCode != 0 ]]
+  then
+    ciop-log "ERROR" "${FUNCNAME[0]} failed for $@"
+  fi
+
+  return $exitCode
+}
+
 
 # Public: Download an image from the catalog
 #
@@ -216,13 +255,13 @@ get_data() {
                                                                                                                                                                  
   [ "${ref:0:4}" == "file" ] || [ "${ref:0:1}" == "/" ] && enclosure=${ref}                                                                                      
                                                                                                                                                                  
-  [ -z "$enclosure" ] && enclosure=$( opensearch-client  -f atom  "${ref}" enclosure )                                                                                     
+  [ -z "$enclosure" ] && enclosure=$( opensearch-client  -f atom -p do=terradue "${ref}" enclosure )                                                                                     
   res=$?                                                                                                                                                         
   enclosure=$( echo ${enclosure} | tail -1 )                                                                                                                     
   [ $res -eq 0 ] && [ -z "${enclosure}" ] && return ${ERRSTGIN}                                                                                               
   [ $res -ne 0 ] && enclosure=${ref}                                                                                                                             
                                                                                                                                                                  
-  local_file="$( echo ${enclosure} | ciop-copy -f -U -O ${target} - 2> /dev/null )"                                                                              
+  local_file="$( echo ${enclosure} | with_backoff ciop-copy -f -U -O ${target} - 2> /dev/null )"                                                                              
   res=$?                                                                                                                                                         
   [ ${res} -ne 0 ] && return ${res}                                                                                                                              
   echo ${local_file}                                                                                                                                             
