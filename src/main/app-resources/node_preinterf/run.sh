@@ -81,11 +81,9 @@ function main()
 trap trapFunction INT TERM
 
 #run processing
-create_lock ${_WF_ID} "node_preinterf" && {
-    main || {
-	procCleanup
-	exit $ERRGENERIC
-    }
+main || {
+    procCleanup
+    exit $ERRGENERIC
 }
 
 

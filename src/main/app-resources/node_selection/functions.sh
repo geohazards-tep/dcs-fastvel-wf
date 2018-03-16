@@ -27,6 +27,16 @@ function import_data_selection()
     local localdir="$1"
     local runid="$2"
     local imagetag="$3"
+    local orbnum=""
+    local tmpdir=$(mktemp -d "${localdir}/import_XXXXXX")
+
+    if [ -z "$tmpdir" ]; then
+	ciop-log "ERROR" "Cannot create temporary folder in $tmpdir"
+	return $ERRPERM
+    fi
+
+    product_tag_get_orbnum "`basename ${imagetag}`" orbnum
+	
     
     local remotedir=`ciop-browseresults -r "${runid}" -j node_import | grep ${imagetag}`
     [ -z "${remotedir}" ] && {
@@ -35,45 +45,51 @@ function import_data_selection()
     }
     
     #import remote files to local
-    for file in `hadoop dfs -lsr "${remotedir}" | grep "\.geosar" | awk '{print $8}'`; do
 
-	hadoop dfs -copyToLocal "${file}" "${localdir}/DAT/GEOSAR" || {
-	    ciop-log "ERROR" "Failed to import ${file}"
-	    return 1
-}
-	
-    done
-
-    for file in `hadoop dfs -lsr "${remotedir}" | grep "\.orb" | awk '{print $8}'`; do	
-	hadoop dfs -copyToLocal "${file}" "${localdir}/ORB" || {
-	    ciop-log "ERROR" "Failed to import ${file}"
-	    return 1
-	}
-    done
+	#hadoop dfs -copyToLocal "${file}" "${localdir}/DAT/GEOSAR" || {
+    ciop-copy "hdfs://${remotedir}/DAT/GEOSAR/${orbnum}.geosar" -q -O "$tmpdir" || {
+	ciop-log "ERROR" "Failed to import hdfs://${remotedir}/DAT/GEOSAR/${orbnum}.geosar"
+	return 1
+    }
     
-    for file in `hadoop dfs -lsr "${remotedir}" | grep "doppler_" | awk '{print $8}'`; do
-	
-	hadoop dfs -copyToLocal "${file}" "${localdir}/SLC_CI2" || {
-	    ciop-log "ERROR" "Failed to import ${file}"
-	    return 1
-	}
-    done
+    mv "${tmpdir}/${orbnum}.geosar" "${localdir}/DAT/GEOSAR"
 
-    for file in `hadoop dfs -lsr "${remotedir}" | grep "xml" | awk '{print $8}'`; do
-	
-	hadoop dfs -copyToLocal "${file}" "${localdir}/SLC_CI2" || {
-	    ciop-log "ERROR" "Failed to import ${file}"
+    #for file in `hadoop dfs -lsr "${remotedir}" | grep "\.orb" | awk '{print $8}'`; do	
+       ciop-copy "hdfs://${remotedir}/ORB/${orbnum}.orb" -q -O "$tmpdir" || {
+	    ciop-log "ERROR" "Failed to import hdfs://${remotedir}/ORB/${orbnum}.orb"
 	    return 1
 	}
-    done
+    #done
+       mv "${tmpdir}/${orbnum}.orb" "${localdir}/ORB/"
+
     
-    for file in `hadoop dfs -lsr "${remotedir}" | grep "aoi.txt" | awk '{print $8}'`; do
 	
-	hadoop dfs -cat "${file}" >  "${localdir}/DAT/aoi.txt" || {
-	    ciop-log "ERROR" "Failed to import ${file}"
+	#hadoop dfs -copyToLocal "${file}" "${localdir}/SLC_CI2" || {
+       ciop-copy "hdfs://${remotedir}/SLC_CI2/doppler_${orbnum}" -q -O "$tmpdir" || {
+	    ciop-log "ERROR" "Failed to import hdfs://${remotedir}/SLC_CI2/doppler_${orbnum}"
 	    return 1
 	}
-    done
+
+       mv "${tmpdir}/doppler_${orbnum}" "${localdir}/SLC_CI2"
+
+ #   for file in `hadoop dfs -lsr "${remotedir}" | grep "xml" | awk '{print $8}'`; do
+#	
+#	hadoop dfs -copyToLocal "${file}" "${localdir}/SLC_CI2" || {
+#	    ciop-log "ERROR" "Failed to import ${file}"
+#	    return 1
+#	}
+    #done
+    
+    #for file in `hadoop dfs -lsr "${remotedir}" | grep "aoi.txt" | awk '{print $8}'`; do
+	
+	#hadoop dfs -cat "${file}" >  "${localdir}/DAT/aoi.txt" || {
+    ciop-copy "hdfs://${remotedir}/DAT/aoi.txt" -q -O ${tmpdir} || {
+    ciop-log "ERROR" "Failed to import ${file}"
+	    return 1
+	}
+
+    mv ${tmpdir}/aoi.txt "${localdir}/DAT/"
+    #done
 
 
     for g in `find ${localdir} -name "*.geosar" -print`; do
@@ -266,16 +282,25 @@ function merge_datasetlist()
     
     local serverdir="$1"
     local runid="$2"
-    
+
     local mergeddataset="${serverdir}/DAT/dataset.txt"
     #iterate over all directories from node_import
     for dir in `ciop-browseresults -r "${runid}" -j node_import`; do
-	for dataset in `hadoop dfs -lsr ${dir} | grep dataset.txt | awk '{print $8}'`;do
+	local tmpdir=$(mktemp -d "${serverdir}/dset_XXXXXX") || {
+	    ciop-log "ERROR" "Cannot create folder in ${serverdir}"
+	    continue
+	}
+	for dataset in `echo "hdfs://${dir}/DATASET/dataset.txt"`;do
 	    #echo "Dataset ${dataset}"
-	    local data=`hadoop dfs -cat ${dataset}`
+	    ciop-copy "$dataset" -q -O "${tmpdir}" || {
+		ciop-log "ERROR" "Failed to copy $dataset"
+		continue
+	    }
+	    local data=`cat ${tmpdir}/dataset.txt`
 	    ciop-log "DEBUG" "data->${data}"
-	    hadoop dfs -cat ${dataset} >> ${mergeddataset}
+	    cat ${tmpdir}/dataset.txt >> ${mergeddataset}
 	done
+	rm -rf "${tmpdir}"
     done
     
     local cnt=`cat ${mergeddataset} | wc -l`
@@ -407,6 +432,9 @@ function compute_precise_sm()
     
     local immode=""
     local orbsm=""
+    local mlazi=""
+    local mlrang=""
+    local interpx=""
 
     product_tag_get_mode "${smtag}" immode || {
 	return ${ERRINVALID}
@@ -416,10 +444,17 @@ function compute_precise_sm()
 	return ${ERRINVALID}
     }
 
+    read_multilook_factors "${smtag}" "${PROPERTIES_FILE}" mlazi mlrang interpx || {
+	ciop-log "ERROR" "Failed to determine multilook parameters from properties file ${PROPERTIES_FILE}"
+	return ${ERRGENERIC}
+    }
+
+
     if [ "${immode}" == "IW" ] ||  [  "${immode}" == "EW" ]; then
 	return ${SUCCESS}
     fi
     
+
     #import DEM
     local demtif=$(ls ${procdir}/DEM/*.tif | head -1)
     
@@ -444,15 +479,35 @@ function compute_precise_sm()
 	ciop-log "ERROR" "image directory ${smtag} not found in remote"
 	return ${ERRMISSING}
     }
+
+    local tempdir=$(mktemp -d "${procdir}/TEMP/mlsm_XXXXXX") || {
+	ciop-log "ERROR" "Failed to create folder in ${procdir}"
+	return $ERRPERM
+    }
+
+
     #import multilook 
-    for file in `hadoop dfs -lsr "${remotedir}" | awk '{print $8}' | grep "SLC_CI2" | grep ml | grep "\.rad\|\.byt" `; do
-	
-	hadoop dfs -copyToLocal "${file}" "${procdir}/SLC_CI2" || {
-	    ciop-log "ERROR" "Failed to import ${file}"
+    #for file in `hadoop dfs -lsr "${remotedir}" | awk '{print $8}' | grep "SLC_CI2" | grep ml | grep "\.rad\|\.byt" `; do
+    for file in `echo "hdfs://${remotedir}/SLC_CI2/${orbsm}_ml${mlazi}${mlrang}.byt" "hdfs://${remotedir}/SLC_CI2/${orbsm}_ml${mlazi}${mlrang}.rad"`; do
+ 
+    #hadoop dfs -copyToLocal "${file}" "${procdir}/SLC_CI2" || {
+    ciop-copy "${file}" -q -O "${tempdir}" || {
+    ciop-log "ERROR" "Failed to import ${file}"
 	    return ${ERRGENERIC}
 	}
+    
+    mv "${tempdir}"/* "${procdir}/SLC_CI2"
+
     done
     
+    #do not recompute precise if it was done previously
+    local gstatus=`grep "^STATUS" ${procdir}/DAT/GEOSAR/${orbsm}.geosar | cut -b 40-1024 | sed 's@[[:space:]]*@@g'`
+    ciop-log "SM geosar status : $gstatus"
+    if [ "$gstatus" == "PRECISE" ] ; then
+	ciop-log "INFO" "SM geosar already precise"
+	return $SUCCESS
+    fi
+
     geosarfixpath.pl --geosar=${procdir}/DAT/GEOSAR/${orbsm}.geosar --serverdir=${procdir}
 
     ciop-log "INFO" "Running precise SM "

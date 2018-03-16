@@ -27,21 +27,26 @@ function import_interfs()
     local runid="$2"
     
     
-    for x in `ciop-browseresults -j node_interf -r ${runid}`;do
-	for d in `hadoop dfs -lsr ${x} | awk '{print $8}' `;do
+    for x in `ciop-browseresults -j node_interf -r "${runid}"`;do
+	local interfdirtag=`basename "${x}"`
+	ciop-copy "hdfs://$x" -O "${procdir}/TEMP" || {
+	    ciop-log "ERROR" "Couldn't copy $x to local storage"
+	    return $ERRGENRIC
+	}
+	for d in `find ${procdir}/TEMP/${interfdirtag} -type f -print`;do
 	    local exten=${d##*.}
 	#echo "${d} - ${exten}"
 	    local status=0
 	    case "${exten}" in
-		orb) [ ! -e "${procdir}/ORB/`basename $d`" ] && { hadoop dfs -copyToLocal ${d} ${procdir}/ORB/
+		orb) [ ! -e "${procdir}/ORB/`basename $d`" ] && { mv ${d} ${procdir}/ORB/
 		    status=$?
 }
 		    ;;
-		*geosar*)[ ! -e "${procdir}/DAT/GEOSAR/`basename $d`" ] && { hadoop dfs -copyToLocal ${d} ${procdir}/DAT/GEOSAR/
+		*geosar*)[ ! -e "${procdir}/DAT/GEOSAR/`basename $d`" ] && { mv ${d} ${procdir}/DAT/GEOSAR/
 		    status=$?
 }
 		    ;;
-		*) hadoop dfs -copyToLocal ${d} ${procdir}/DIF_INT
+		*) mv ${d} ${procdir}/DIF_INT
 		    status=$?
 		    ;;
 	    esac
@@ -50,8 +55,9 @@ function import_interfs()
 		ciop-log "ERROR" "Failed to import file ${d}"
 		return ${ERRGENERIC}
 	    }
-	    done
 	done
+	rm -rf "${procdir}/TEMP/${interfdirtag}"
+    done
 
     find ${procdir} -name "*.geosar*"  -exec geosarfixpath.pl --geosar='{}' --serverdir=${procdir} \; > /dev/null 2<&1
 

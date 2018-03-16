@@ -1192,17 +1192,27 @@ function ext2dop()
 	return ${ERRGENERIC}	
     fi
 
-    echo "${tag}" > ${serverdir}/DAT/datatag.txt 2<&1
+    local mode=""
+    product_tag_get_mode "${tag}" mode
+
+    
     mv ${serverdir}/log/extraction*.log "${serverdir}/log/${tag}_extraction.log"
     #precise orbits
     preciseorb "${geosar}" "${serverdir}"
     
+    #check for dem and aoi
+    local demdesc=${serverdir}/DAT/dem.dat
+    local aoidesc=${serverdir}/DAT/aoi.txt
+    local roidef=""
+
     #check for raw images
     local gstatus=`grep -ih "STATUS" "${geosar}" | cut -b 40-1024 | sed 's@[[:space:]]@@g'`
     
     if [ "$gstatus" == "RAW" ]; then
-	#run focusing
-	prisme.pl --geosar="$geosar" --mlaz=${mlazi} --mlran=${mlrang}  --mltype=byt --tmpdir="${serverdir}/TEMP" --outdir="${serverdir}/SLC_CI2/"  --tmpdir="${serverdir}/TEMP" --rate > "${serverdir}/log/${tag}_prisme.log" 2<&1
+	local roiopt=""
+	
+        #run focusing
+	prisme.pl --geosar="$geosar" --mlaz=${mlazi} --mlran=${mlrang}  --mltype=byt --tmpdir="${serverdir}/TEMP" --outdir="${serverdir}/SLC_CI2/"  --tmpdir="${serverdir}/TEMP" --rate "${roiopt}"  > "${serverdir}/log/${tag}_prisme.log" 2<&1
 	local prismestatus=$?
 	if [ $prismestatus -ne 0 ]; then
 	    #print message
@@ -1213,7 +1223,22 @@ function ext2dop()
 	#delete raw data
 	rm -f "${serverdir}"/RAW_C5B/*
     fi
+
+        
+    # get roi
+    if [ -e "${demdesc}" ] && [ -e "${aoidesc}" ]; then
+	local aoi=`head -1 ${aoidesc}`
+	ciop-log "INFO" "aoi is $aoi"
+	roidef=$(geosar_get_aoi_coords2 "${geosar}" "${aoi}" "${demdesc}" "${serverdir}/log")
+    fi
     
+    
+    #cut slc
+    if [ -n "${roidef}" ] && [ "${mode}" == "IM" ]; then
+	ciop-log "INFO" "cutting image over region ${roidef}"
+	roiopt="--roi ${roidef}"
+	slcroi.pl --geosar="$geosar" ${roiopt}  > ${serverdir}/log/${tag}_slcroi.log 2<&1
+    fi
 
     #ML & doppler
     ls -tra ${serverdir}/DAT/GEOSAR/*.geosar | head -1 | ml_all.pl --mlaz=${mlazi} --mlran=${mlrang} --dir="${serverdir}/SLC_CI2"  --tmpdir="${serverdir}/TEMP" > "${serverdir}/log/${tag}_ml.log" 2<&1
@@ -1228,6 +1253,16 @@ function ext2dop()
 
     #
     setlatlongeosar.pl --geosar="${geosar}" --tmpdir="${serverdir}/TEMP"   > "${serverdir}/log/${tag}_corner_latlon.log" 2<&1
+
+    #run precise SM
+    if [ -e "${demdesc}" ] && [ "${mode}" == "IM" ]; then
+	precise_sm.pl --sm="${geosar}" --demdesc="${demdesc}" --recor --serverdir="${serverdir}" --tmpdir="${serverdir}"/TEMP > "${serverdir}/log/${tag}_precise.log" 2<&1
+	rm -rf "${serverdir}"/TEMP/simu_sar* > /dev/null 2<&1
+    fi
+
+    tag=$(geosartag "${geosar}")
+    echo "${tag}" > ${serverdir}/DAT/datatag.txt 2<&1
+
 
     return 0
 }
@@ -1990,11 +2025,39 @@ function get_global_parameter()
 	return $ERRMISSING
     fi
     
-    local value=`hadoop dfs -cat ${global_param_file} | grep ${param_name} | cut -f2 -d "="`
+    local tempodir="${TMPDIR}"
+    if [ -z "${tempodir}" ]; then
+	tempodir="/tmp"
+    fi
+
+    local temp=$(mktemp -d ${tempodir}/globparam_XXXXX) || {
+	ciop-log "ERROR" "Cannot create temporary folder"
+	return ${ERRPERM}
+    }
+
+    local parmfile=${temp}/`basename ${global_param_file}`
+    
+    ciop-copy "hdfs://${global_param_file}" -q -O "${temp}" || {
+	ciop-log "ERROR" "Cannot copy ${global_param_file}"
+	return ${ERRGENERIC}
+    }
+
+    if [ ! -e "${parmfile}" ]; then
+	ciop-log "ERROR" "Failed to import ${global_param_file}"
+	return ${ERRGENERIC}
+    fi
+
+    
+    
+
+    local value=`cat ${parmfile} | grep ${param_name} | cut -f2 -d "="`
     if [ -z "${value}" ]; then
 	ciop-log "ERROR" "Parameter ${param_name} not found in ${global_param_file}"
 	return $ERRMISSING
     fi
+    
+    rm -rf "${temp}" > /dev/null 2<&1
+
     
     echo $value
     return $SUCCESS
@@ -2145,8 +2208,9 @@ function create_interf_properties()
     fi
 
     #rename file so name matches metadata description
-    local ext="${inputfile##*\.}"
-    local renamed=`dirname ${inputfile}`"`echo "/FASTVEL-IFG - ${description} - ${datestart} ${dateend}" | sed 's@[[:space:]]@_@g;s@:@@g'`"."$ext"
+    local inputbase=$(basename "${inputfile}")
+    local ext="${inputbase#*\.}"
+    local renamed=`dirname ${inputfile}`"`echo "/FASTVEL-IFG-${datestart} ${dateend}-${description}" | sed 's@[[:space:]]@_@g;s@:@@g'`"."$ext"
     mv "${inputfile}" "${renamed}"
     mv "${propfile}" "${renamed}"".properties"
     
@@ -2315,4 +2379,53 @@ if [ $status -ne 0 ]; then
 fi
 
 return $SUCCESS
+}
+
+function download_dem_from_aoi()
+{
+    if [ $# -lt 2 ]; then
+	ciop-log "ERROR" "$FUNCNAME:aoi directory"
+	return ${ERRMISSING}
+    fi
+
+    local aoistr="$1"
+    local outdir="$2"
+    declare -a aoi
+    aoi=(`echo ${aoistr} | sed 's@,@ @g'`)
+    if [ ${#aoi[@]} -lt 4 ]; then
+	ciop-log "ERROR" "Bad aoi definition $aoistr"
+    fi
+
+    local demurl="http://dedibox.altamira-information.com/demdownload?lat="${aoi[1]}"&lat="${aoi[3]}"&lon="${aoi[0]}"&lon="${aoi[2]}
+    
+    local demtif=${outdir}/dem.tif
+    
+    local downloadcmd="curl -o \"${demtif}\" \"${demurl}\" "
+    
+    eval "${downloadcmd}" > ${outdir}/demdownload.log 2<&1
+    
+        #check downloaded file
+    if [ ! -e "${demtif}" ]; then
+	ciop-log "ERROR" "Unable to download DEM data"
+	ciop-log "DEBUG" `cat ${outdir}/demdownload.log`
+	return ${ERRGENERIC}
+    fi
+
+        #check it is a tiff
+    gdalinfo "${demtif}" > /dev/null 2<&1 || {
+	ciop-log "ERROR" "File ${demtif} is not valid"
+	return ${ERRGENERIC}
+    }
+
+    #create DEM descriptor
+    tifdemimport.pl --intif="${demtif}" --outdir="${outdir}" > "${outdir}/demimport.log" 2<&1
+    importst=$?
+    
+    if [ $importst -ne 0 ] || [ ! -e "${outdir}/dem.dat" ]; then
+	ciop-log "ERROR" "DEM conversion failed"
+	return ${ERRGENERIC}
+    fi
+
+
+    return $SUCCESS
 }

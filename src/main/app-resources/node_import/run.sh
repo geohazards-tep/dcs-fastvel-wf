@@ -50,7 +50,12 @@ function main()
 	ciop-log "ERROR" "Cannot create directory in ${TMPDIR}"
 	return $ERRPERM
     }
-    
+
+    local aoidef=$(get_global_parameter "aoi" "${_WF_ID}")
+    if [ -n "${aoidef}" ]; then
+	echo "${aoidef}" > ${serverdir}/DAT/aoi.txt
+	download_dem_from_aoi "${aoidef}" "${serverdir}/DAT"
+    fi
     ciop-log "INFO" "Downloading ${inref}"
     
     local image=$( get_data "${inref}" ${serverdir}/CD/)
@@ -94,6 +99,7 @@ function main()
 	    procCleanup
 	    return $ERRGENERIC
 	}
+	rm -f ${serverdir}/DAT/dem* > /dev/null 2<&1
 	ciop-log "INFO" "Ingested product $prod"
     done
     

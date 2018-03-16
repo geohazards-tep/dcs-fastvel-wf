@@ -85,12 +85,14 @@ function import_interf_list()
     local wkid="$2"
     
     for d in `ciop-browseresults -j node_selection -r ${wkid}  | grep MASTER_SELECTION`;do
- 	for file in  `hadoop dfs -lsr ${d} | awk '{print $8}' | grep "name_slc\|list_interf\|SM_selection"`;do
-	    hadoop dfs -copyToLocal ${file} ${procdir}/DAT/
-	    status=$?
+ 	#for file in  `hadoop dfs -lsr ${d} | awk '{print $8}' | grep "name_slc\|list_interf\|SM_selection"`;do
+	for file in `echo hdfs://${d}/list_interf_auto.txt hdfs://${d}/name_slc_auto.txt hdfs://${d}/SM_selection_auto.txt hdfs://${d}/SM.txt`;do
+	    #hadoop dfs -copyToLocal ${file} ${procdir}/DAT/
+	ciop-copy "$file" -q -O ${procdir}/DAT/
+	status=$?
 	    
 	    [ $status -ne 0 ] && {
-		ciop-log "ERROR" "Failed to import file ${file} (hadoop status $status)"
+		ciop-log "ERROR" "Failed to import file ${file} (ciop-copy status $status)"
 		return ${ERRGENERIC}
 	    }
 	done
@@ -143,11 +145,11 @@ function import_dem_from_node_selection()
 	return ${ERRGENERIC}
     }
     local status=0
-    for f in `hadoop dfs -lsr ${remotedemdir} | awk '{print $8}' | grep -i dem.tif`; do
-	hadoop dfs -copyToLocal ${f} ${procdir}/DAT/ 
+    for f in `echo "hdfs://${remotedemdir}/dem.tif"`; do
+	ciop-copy  ${f} -O ${procdir}/DAT/ 
 	status=$?
 	[ $status -ne 0 ] && {
-	    ciop-log "ERROR" "Failed to import ${f}"
+	    ciop-log "ERROR" "Failed to import ${f}. status of ciop-copy : $status"
 	    return ${ERRGENERIC}
 }
 	#check imported geotiff dem
@@ -176,13 +178,12 @@ function import_dem_from_node_selection()
     local remoteaoidir=`ciop-browseresults -j node_selection -r ${wkid} | grep AOI`
     
     if [ -n "${remoteaoidir}" ]; then
-	for file in `hadoop dfs -lsr ${remoteaoidir} | awk '{print $8}'`; do
-	    hadoop dfs -copyToLocal ${file} ${procdir}/AOI
-	    status=$?
-	    if [ $status -ne 0 ]; then
-		ciop-log "ERROR" "Failed to import ${file}"
-	    fi
-	done
+	ciop-copy "hdfs://${remoteaoidir}" -q -O "${procdir}"
+	status=$?
+	if [ $status -ne 0 ]; then
+	    ciop-log "ERROR" "Failed to import ${remoteaoidir}. ciop-copy status : $status"
+	    return ${ERRGENERIC}
+	fi
     fi
 
     return ${SUCCESS}
@@ -462,7 +463,7 @@ function import_aoi_def_from_node_import()
 	 return ${ERRMISSING}
      fi
 
-     local remoteaoifile=`hadoop dfs -lsr ${remotesmdir} | awk '{print $8}' | grep -i aoi.txt`
+     local remoteaoifile="hdfs://${remotesmdir}/DAT/aoi.txt"
      
      if [ -z "${remoteaoifile}" ]; then
 	 ciop-log "ERROR" "No aoi definition file in remote folder ${remotesmdir}"
@@ -470,7 +471,7 @@ function import_aoi_def_from_node_import()
      fi
 
      local localaoifile=${procdir}/DAT/aoi.txt
-     hadoop dfs -cat "${remoteaoifile}" > "${localaoifile}" || {
+     ciop-copy ${remoteaoifile} -q -O ${procdir}/DAT/ || {
 	 ciop-log "ERROR" "Failed to import file ${remoteaoifile}"
 	 return ${ERRMISSING}
      }
@@ -1126,14 +1127,16 @@ function import_geosar()
     local runid="$2"
 
     for x in `ciop-browseresults -j node_coreg -r ${runid}`;do
-	for d in `hadoop dfs -lsr ${x} | awk '{print $8}' | grep "DAT/GEOSAR/\|ORB/"`;do
+	local orbnum 
+	product_tag_get_orbnum "`basename $x`" orbnum
+	for d in `echo hdfs://${x}/ORB/${orbnum}.orb  hdfs://${x}/DAT/GEOSAR/${orbnum}.geosar_ext hdfs://${x}/DAT/GEOSAR/${orbnum}.geosar`;do
 	    local exten=${d##*.}
 	local status=0
 	case "${exten}" in
-	    orb)hadoop dfs -copyToLocal ${d} ${procdir}/ORB/
+	    orb)ciop-copy "${d}" -q -O ${procdir}/ORB/
 		status=$?
 		;;
-	    *geosar*)hadoop dfs -copyToLocal ${d} ${procdir}/DAT/GEOSAR/
+	    *geosar*)ciop-copy "${d}" -q -O ${procdir}/DAT/GEOSAR/
 		status=$?
 		;;
 	esac
@@ -1185,17 +1188,39 @@ function import_geo_image()
 	ciop-log "ERROR" "Missing lockfile utility"
 	return ${ERRMISSING}
     fi
-
+    
+    #check for the SM
+    local smfile=${serverdir}/DAT/SM.txt
+    local smtag=`cat $smfile`
+    local orbsm=""
+    if [ ! -e "${smfile}" ] ||  [ -z "$smtag" ] ; then
+	ciop-log "ERROR" "Missing SM.txt file"
+	return ${ERRMISSING}
+    fi
+    
+    product_tag_get_orbnum $smtag orbsm || {
+	ciop-log "ERROR" "Failed to read super-master tag $smtag"
+	return ${ERRGENERIC}
+    }
+    
     local lockfile="${serverdir}/TEMP/${orbnum}.lock"
 
     if lockfile -r ${retries} -${timeoutsec} ${lockfile}  ; then
 	local geo_count=`find ${serverdir}/GEO_CI2_EXT_LIN/ -iname "geo_${orbnum}_*.*" -print | wc -l`
 	if [ $geo_count -eq 0 ]; then
 	    for x in `ciop-browseresults -j node_coreg -r ${wkid}`;do
-		for d in `hadoop dfs -lsr ${x} | awk '{print $8}' | grep "geo_${orbnum}_*.*"`;do
-		    echo "copying $d"
-		    hadoop dfs -copyToLocal ${d} ${serverdir}/GEO_CI2_EXT_LIN
-		done
+		local imgtag=$(basename $x)
+		local imgorbnum=""
+		product_tag_get_orbnum $imgtag imgorbnum || {
+		    continue
+}
+		if [ "$imgorbnum" == "$orbnum" ]; then
+		    
+		    for d in `echo hdfs://$x/GEO_CI2_EXT_LIN/geo_${orbnum}_${orbsm}.ci2 hdfs://$x/GEO_CI2_EXT_LIN/geo_${orbnum}_${orbsm}.rad`;do
+			echo "copying $d"
+			ciop-copy ${d} -q -O ${serverdir}/GEO_CI2_EXT_LIN
+		    done
+		fi
 	    done
 	else
 	    echo "geo image ${orbnum} already copied"
@@ -1567,11 +1592,23 @@ function generate_ortho_interferogram()
 	#ortho of the amplitude
     ortho.pl --geosar=${smgeo} --in="${interfdir}/amp${tag}_${master}_${slave}_ml11.rad" --demdesc="${ortho_dem}" --tag="amp_${master}_${slave}_ml11" --odir="${interfdir}" --tmpdir=${procdir}/TEMP "${topleftxopt}" "${topleftyopt}"  >> "${procdir}"/log/amp_ortho_${master}_${slave}.log 2<&1
 
+        #geotiff files
+    phaorthotifrgb="${interfdir}/pha_${master}_${slave}_ortho.rgb.tiff"
+    phaorthotif="${interfdir}/pha_${master}_${slave}_ortho.tiff"
+    amporthotifrgb="${interfdir}/amp_${master}_${slave}_ortho.rgb.tiff"
+    amporthotif="${interfdir}/amp_${master}_${slave}_ortho.tiff"
+    cohorthotifrgb="${interfdir}/coh_${master}_${slave}_ortho.rgb.tiff"
+    cohorthotif="${interfdir}/coh_${master}_${slave}_ortho.tiff"
+    unworthotifrgb="${interfdir}/unw_${master}_${slave}_ortho.rgb.tiff"
+    unworthotif="${interfdir}/unw_${master}_${slave}_ortho.tiff"
+    
 	#create geotiff
-    ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --mask --alpha="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --colortbl=BLUE-RED  --demdesc="${ortho_dem}" --outfile="${interfdir}/pha_${master}_${slave}_ortho_rgb.tiff"  --tmpdir=${procdir}/TEMP  >> ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
-    ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --demdesc="${ortho_dem}" --outfile="${interfdir}/pha_${master}_${slave}_ortho.tiff"  --tmpdir=${procdir}/TEMP  >> ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
-    ortho2geotiff.pl --ortho="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --demdesc="${ortho_dem}"  --gep  --colortbl=BLACK-WHITE --mask  --alpha="${interfdir}/coh_${master}_${slave}_ml11_ortho.rad" --min=5  --outfile="${interfdir}/amp_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/amp_ortho_${master}_${slave}.log 2<&1
-    ortho2geotiff.pl --ortho="${interfdir}/coh_${master}_${slave}_ml11_ortho.rad" --demdesc="${ortho_dem}" --outfile="${interfdir}/coh_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/coh_ortho_${master}_${slave}.log 2<&1
+    ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --mask --alpha="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --colortbl=BLUE-RED  --demdesc="${ortho_dem}" --outfile="${phaorthotifrgb}"  --tmpdir=${procdir}/TEMP  >> ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
+    ortho2geotiff.pl --ortho="${interfdir}/pha_${master}_${slave}_ml11_ortho.pha"  --demdesc="${ortho_dem}" --outfile="${phaorthotif}"  --tmpdir=${procdir}/TEMP  >> ${procdir}/log/pha_ortho_${master}_${slave}.log 2<&1
+    ortho2geotiff.pl --ortho="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --demdesc="${ortho_dem}"  --gep  --colortbl=BLACK-WHITE --mask  --alpha="${interfdir}/coh_${master}_${slave}_ml11_ortho.rad" --min=5  --outfile="${amporthotifrgb}" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/amp_ortho_${master}_${slave}.log 2<&1
+    ortho2geotiff.pl --ortho="${interfdir}/coh_${master}_${slave}_ml11_ortho.rad" --demdesc="${ortho_dem}" --outfile="${cohorthotif}" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/coh_ortho_${master}_${slave}.log 2<&1
+
+    ortho2geotiff.pl --ortho="${interfdir}/coh_${master}_${slave}_ml11_ortho.rad" --demdesc="${ortho_dem}" --outfile="${cohorthotifrgb}" --colortbl=BLACK-WHITE --min=1 --max=255 --tmpdir=${procdir}/TEMP  >> ${procdir}/log/coh_ortho_${master}_${slave}.log 2<&1
     ln -s ${procdir}/log/amp_ortho_${master}_${slave}.log ${interfdir}/ortho_amp.log
     if [ ! -e "${interfdir}/pha_${master}_${slave}_ml11_ortho.pha" ]; then
 	ciop-log "ERROR" "Failed to generate ortho interferogram"
@@ -1609,8 +1646,8 @@ function generate_ortho_interferogram()
 		cat "${procdir}"/log/unw_ortho_${master}_${slave}.log
 	    fi
 	    
-	    ortho2geotiff.pl --ortho="${orthounw}" --demdesc="${ortho_dem}" --outfile="${interfdir}/unw_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/unw_ortho_${master}_${slave}.log 2<&1
-	    
+	    ortho2geotiff.pl --ortho="${orthounw}" --demdesc="${ortho_dem}" --outfile="${unworthotif}" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/unw_ortho_${master}_${slave}.log 2<&1
+	    ortho2geotiff.pl --ortho="${orthounw}" --demdesc="${ortho_dem}" --outfile="${unworthotifrgb}" --colortbl=BLUE-RED  --tmpdir=${procdir}/TEMP  >> ${procdir}/log/unw_ortho_${master}_${slave}.log 2<&1
 	    
 	    
 	    fi
@@ -1624,46 +1661,41 @@ function generate_ortho_interferogram()
 	create_pngs_from_tif "${f}"
     done
 
-    rm "${interfdir}/amp_${master}_${slave}_ortho.tiff"
     
-    ortho2geotiff.pl --ortho="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --demdesc="${ortho_dem}"  --outfile="${interfdir}/amp_${master}_${slave}_ortho.tiff" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/amp_ortho_${master}_${slave}.log 2<&1
+    ortho2geotiff.pl --ortho="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --demdesc="${ortho_dem}"  --outfile="${amporthotif}" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/amp_ortho_${master}_${slave}.log 2<&1
     
-    wkt=$(tiff2wkt "${interfdir}/coh_${master}_${slave}_ortho.tiff")
+    wkt=$(tiff2wkt "${cohorthotif}")
     echo ${wkt} > ${interfdir}/wkt.txt
     
-    create_interf_properties "${interfdir}/coh_${master}_${slave}_ortho.png" "Interferometric Coherence - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"
-    create_interf_properties "${interfdir}/amp_${master}_${slave}_ortho.png" "Interferometric Amplitude - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"
-	
-    create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho_rgb.png" "Interferometric Phase - Preview" "${interfdir}" "${mastergeo}" "${slavegeo}"
+    gdaladdo -r average ${cohorthotifrgb} 2 4 8
+    gdaladdo -r average ${amporthotifrgb} 2 4 8
+    gdaladdo -r average ${phaorthotifrgb} 2 4 8
     
-    create_interf_properties "${interfdir}/amp_${master}_${slave}_ortho.tiff" "Interferometric Amplitude" "${interfdir}" "${mastergeo}" "${slavegeo}"
+    
+    
+    create_interf_properties "${amporthotif}" "Interferometric Amplitude" "${interfdir}" "${mastergeo}" "${slavegeo}"
+    create_interf_properties "${amporthotifrgb}" "Interferometric Amplitude" "${interfdir}" "${mastergeo}" "${slavegeo}"
 
-    create_interf_properties "${interfdir}/coh_${master}_${slave}_ortho.tiff" "Interferometric Coherence" "${interfdir}" "${mastergeo}" "${slavegeo}"
+
+    create_interf_properties "${cohorthotif}" "Interferometric Coherence" "${interfdir}" "${mastergeo}" "${slavegeo}"
+    create_interf_properties "${cohorthotifrgb}" "Interferometric Coherence" "${interfdir}" "${mastergeo}" "${slavegeo}"
     
-    create_interf_properties "${interfdir}/pha_${master}_${slave}_ortho.tiff" "Interferometric Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
-    
-    #rm "${interfdir}/pha_${master}_${slave}_ortho.png"
-    rm "${interfdir}/pha_${master}_${slave}_ortho_rgb.tiff"
-    rm "${interfdir}/pha_${master}_${slave}_ortho.png"
+
+    create_interf_properties "${phaorthotif}" "Interferometric Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
+    create_interf_properties "${phaorthotifrgb}" "Interferometric Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
+
     
 	
     if [[ "$unwrap" == "true" ]]; then
-	
-	create_interf_properties "${interfdir}/unw_${master}_${slave}_ortho.tiff" "Unwrapped Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
-	rm -f "${interfdir}/unw_${master}_${slave}_ortho.png"
+	gdaladdo -r average ${unworthotifrgb} 2 4 8
+	create_interf_properties "${unworthotif}" "Unwrapped Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
+	create_interf_properties "${unworthotifrgb}" "Unwrapped Phase" "${interfdir}" "${mastergeo}" "${slavegeo}"
     fi
 
     #delete tiff properties files
-    find ${interfdir}/ -name "*.tiff.properties" -exec rm '{}' \;
+    find ${interfdir}/ -name "*rgb.tiff.properties" -exec rm '{}' \;
 
-    #create .zip file with the geotiff results
-    local zipfile="${interfdir}/interf_${master}_${slave}_ortho.zip"
-    find "${interfdir}"  -name "*.tif*" -print | zip -j -@ "${zipfile}"  
-   
-
-    create_interf_properties "${zipfile}" "Results Archive" "${interfdir}" "${mastergeo}" "${slavegeo}"
-    
-    for f in `find "${interfdir}" -iname "*.png" -print -o -iname "*.properties" -print -o -iname "*.zip" -print`;do
+    for f in `find "${interfdir}" -iname "*.tiff" -print -o -iname "*.properties" -print -o -iname "*.zip" -print`;do
 	ciop-publish -m "$f"
     done
     
