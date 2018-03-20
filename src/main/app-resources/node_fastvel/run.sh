@@ -85,10 +85,10 @@ function main()
     
     
     #get the master image tag
-    local mastertag=""
-    for f in `ciop-browseresults -j node_selection -r ${wkid} | grep MASTER_SELECTION`;do
-	mastertag=`hadoop dfs -cat ${f}/SM.txt`
-    done
+    local mastertag=`cat ${serverdir}/DAT/SM.txt`
+ #   for f in `ciop-browseresults -j node_selection -r ${wkid} | grep MASTER_SELECTION`;do
+#	mastertag=`hadoop dfs -cat ${f}/SM.txt`
+    #done
 
     [ -z "${mastertag}" ] && {
 	ciop-log "ERROR" "Failed to get master image tag"

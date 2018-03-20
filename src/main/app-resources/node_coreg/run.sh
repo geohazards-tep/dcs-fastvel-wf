@@ -43,6 +43,7 @@ export serverdir=`mktemp -d ${TMPDIR}/node_coreg_XXXXXX`  || {
 
 mkdir -p ${serverdir}/CD 
 mkdir -p ${serverdir}/DAT
+mkdir -p ${serverdir}/TEMP
 #
 import_data_from_previous_nodes "${serverdir}" ${_WF_ID} || {
     ciop-log "ERROR" "Failed to import data from previous nodes"
@@ -80,6 +81,10 @@ ninputs=${#inputs[@]}
 }
 
 if [ "${inputs[0]}" == "${inputs[1]}"  ]; then
+    ciop-log "INFO" "publish SM IMAGE"
+    export_image_coreg_results "${serverdir}/PROCESSING" "${inputs[0]}"
+    #send something on stdin to next node
+    echo "${inputs[0]}" | ciop-publish -s
     continue
 fi
 
@@ -110,9 +115,9 @@ done
 cleanup_import_data ${inputs[0]} "${_WF_ID}"
 
 #send something on stdin to next node
-create_lock "${_WF_ID}" "node_coreg" && {
-    echo "${inputs[0]}" | ciop-publish -s
-}
+#create_lock "${_WF_ID}" "node_coreg" && {
+#    echo "${inputs[0]}" | ciop-publish -s
+#}
 #remove processing directory
 procCleanup
 
