@@ -50,7 +50,12 @@ function main()
 	ciop-log "ERROR" "Cannot create directory in ${TMPDIR}"
 	return $ERRPERM
     }
-    
+
+    local aoidef=$(get_global_parameter "aoi" "${_WF_ID}")
+    if [ -n "${aoidef}" ]; then
+	echo "${aoidef}" > ${serverdir}/DAT/aoi.txt
+	download_dem_from_aoi "${aoidef}" "${serverdir}/DAT"
+    fi
     ciop-log "INFO" "Downloading ${inref}"
     
     local image=$( get_data "${inref}" ${serverdir}/CD/)
@@ -84,7 +89,7 @@ function main()
     
 
     #ingest product
-    for prod in `find "${serverdir}/CD" -type d -iname "*.SAFE" -print -o -iname "*.tar" -print -o -iname "*.tgz" -print -o -iname "*.zip" -print -o -iname "*.N1" -print -o -iname "*.E[12]" -print`; do
+    for prod in `find "${serverdir}/CD" -type d -iname "*.SAFE" -print -o -iname "*.tar" -print -o -iname "*.tgz" -print -o -iname "*.zip" -print -o -iname "*.N1" -print -o -iname "*.E[12]" -print -o -iname "*.gz" -print`; do
 	ciop-log "INFO" "Ingesting product $prod"
 	#TO-DO ml parm fom config , pol from param
 	ext2dop "${prod}" "${serverdir}" 2 8 "${pol}"
@@ -94,6 +99,7 @@ function main()
 	    procCleanup
 	    return $ERRGENERIC
 	}
+	rm -f ${serverdir}/DAT/dem* > /dev/null 2<&1
 	ciop-log "INFO" "Ingested product $prod"
     done
     

@@ -32,18 +32,36 @@ function import_safe()
 	return ${ERRMISSING}
     }
     
-    local remotesafe=`hadoop dfs -lsr "${remotedir}" | awk '{print $8}' | grep "\.SAFE$"`
+    local localdir="${procdir}/TEMP/${imagetag}"
+ 
+    mkdir -p "${localdir}" || {
+	ciop-log "ERROR" "Cannot create folder ${localdir}"
+	return ${ERRMISSING}
+    }
+
+    ciop-copy "hdfs://${remotedir}" -q -O "${localdir}" || {
+	ciop-log "ERROR" "Failed to import ${remotesafe}"
+	return ${ERRGENERIC}
+    }
+
+    local remotesafe=`find ${localdir} -type d -name "*.SAFE" -print | head -1`
     [ -z "${remotesafe}" ] && {
 	ciop-log "ERROR" "safe directory not found for image ${imagetag}"
 	return ${ERRMISSING}
     }
   
+    ciop-log "INFO" "Imported local SAFE folder to path ${remotesafe}"
+
     #import to directory
-    hadoop dfs -copyToLocal "${remotesafe}" "${procdir}/CD" || {
+    mv "${remotesafe}" "${procdir}/CD" || {
 	ciop-log "ERROR" "Failed to import ${remotesafe}"
 	return ${ERRGENERIC}
     }
 
+    ciop-log "INFO" "CD folder contents : `ls ${procdir}/CD`"
+
+    rm -rf "${localdir}"
+    
     echo "${procdir}/CD/`basename ${remotesafe}`"
     
     return ${SUCCESS}
@@ -94,28 +112,40 @@ function import_extracted_image()
     }
     
     #import geosar file
-    for f in `hadoop dfs -lsr "${remotedir}" | awk '{print $8}' | grep GEOSAR | grep "\.geosar"`; do
-	hadoop dfs -copyToLocal "${f}" "${procdir}/DAT/GEOSAR/" || {
-	    ciop-log "ERROR" "Failed to import file  ${f} for ${imagetag}"
+    #for f in `hadoop dfs -lsr "${remotedir}" | awk '{print $8}' | grep GEOSAR | grep "\.geosar"`; do
+	#hadoop dfs -copyToLocal "${f}" "${procdir}/DAT/GEOSAR/" || {
+	  #  ciop-log "ERROR" "Failed to import file  ${f} for ${imagetag}"
+	 #   return ${ERRGENERIC}
+	#}
+    #done
+    
+    ciop-copy "hdfs://${remotedir}/DAT/GEOSAR/${orbitnum}.geosar"  -q -O "${procdir}/DAT/GEOSAR/" || {
+	    ciop-log "ERROR" "Failed to import file  ${remotedir}/DAT/GEOSAR/${orbitnum}.geosar for ${imagetag}"
 	    return ${ERRGENERIC}
 	}
-    done
+
 
     #import orbit file
-    for f in `hadoop dfs -lsr "${remotedir}" | awk '{print $8}' | grep ORB | grep "\.orb"`; do
-	hadoop dfs -copyToLocal "${f}" "${procdir}/ORB/" || {
-	    ciop-log "ERROR" "Failed to import file ${f} for ${imagetag}"
+    ciop-copy "hdfs://${remotedir}/ORB/${orbitnum}.orb"  -q -O "${procdir}/ORB/" || {
+	    ciop-log "ERROR" "Failed to import file  hdfs://${remotedir}/ORB/${orbitnum}.orb for ${imagetag}"
 	    return ${ERRGENERIC}
 	}
-    done
+
+    
     
     #import slc ,ml and doppler file
-    for f in `hadoop dfs -lsr "${remotedir}/" | awk '{print $8}' |  grep SLC_CI2 |  grep "\.ci2\|\.rad\|doppler\|.byt"`; do
-	hadoop dfs -copyToLocal "${f}" "${procdir}/SLC_CI2/" || {
-	    ciop-log "ERROR" "Failed to import file ${f} for ${imagetag}"
+ #   for f in `hadoop dfs -lsr "${remotedir}/" | awk '{print $8}' |  grep SLC_CI2 |  grep "\.ci2\|\.rad\|doppler\|.byt"`; do
+#	hadoop dfs -copyToLocal "${f}" "${procdir}/SLC_CI2/" || {
+#	    ciop-log "ERROR" "Failed to import file ${f} for ${imagetag}"
+#	    return ${ERRGENERIC}
+#	}
+    #done
+
+    ciop-copy "hdfs://${remotedir}/SLC_CI2" -O ${procdir}/TEMP/  || {
+	    ciop-log "ERROR" "Failed to import slc data for ${imagetag}"
 	    return ${ERRGENERIC}
-	}
-    done
+    }
+    mv ${procdir}/TEMP/SLC_CI2/* ${procdir}/SLC_CI2 
 
     geosarfixpath.pl --geosar="${procdir}/DAT/GEOSAR/${orbitnum}.geosar" --serverdir="${procdir}"
 
@@ -154,7 +184,7 @@ function import_data_from_previous_nodes()
 	return ${ERRGENERIC}
     } 
     
-    hadoop dfs -copyToLocal "${remotedemdir}" "${procdir}" || {
+    ciop-copy "hdfs://${remotedemdir}" -q  -O  "${procdir}" || {
 	ciop-log "ERROR" "Failed to import folder ${remotedemdir}"
 	#procCleanup
 	return ${ERRGENERIC}
@@ -179,9 +209,9 @@ function import_data_from_previous_nodes()
     
     #import AOI
     export AOISHP=""
-    remoteaoidir=`ciop-browseresults -r ${runid}  -j node_selection | grep AOI`
+    remoteaoidir=`ciop-browseresults -r ${runid}  -j node_selection  | grep AOI`
     [ -n "${remoteaoidir}" ] && {
-	hadoop dfs -copyToLocal "${remoteaoidir}" "${procdir}" || {
+	ciop-copy "hdfs://${remoteaoidir}" -q -O "${procdir}" || {
 	    ciop-log "ERROR" "Failed to import folder ${remoteaoidir}"
 	    #procCleanup
 	    return ${ERRGENERIC}
@@ -194,7 +224,7 @@ function import_data_from_previous_nodes()
     
     local stageoutfile=`ciop-browseresults -r ${runid}  -j node_selection | grep stageout.txt | head -1`
     [ -n "stageoutfile" ] && {
-	hadoop dfs -cat ${stageoutfile} > ${procdir}/DAT/stageout.txt 
+	ciop-copy "hdfs://${stageoutfile}" -q -O ${procdir}/DAT/
 	chmod 775 ${procdir}/DAT/stageout.txt
     }
 
@@ -229,7 +259,12 @@ function import_master()
 	return ${ERRMISSING}
     }
 
-    local mastertag=`hadoop dfs -cat ${seldir}/SM.txt`
+    ciop-copy "hdfs://${seldir}/SM.txt" -q -O ${procdir}/DAT/ || {
+	ciop-log "ERROR" "Failed to copy SM.txt file"
+	return ${ERRMISSING}
+    }
+    local masterfile=${procdir}/DAT/SM.txt
+    local mastertag=`head -1 ${masterfile}`
     
     [ -z "${mastertag}" ] && {
 	ciop-log "ERROR" "Unable to read master image tag"
@@ -359,14 +394,14 @@ function run_coreg_process_tops()
     #the first slave image (i.e different from master)
     local pubmaster=0
     
-    if [ ${#imagetags[@]} -eq 1 ] && [ "${imagetags[0]}" == "${slimagetag}"  ]; then
+    if [ ${#imagetags[@]} -ge 1 ] && [ "${imagetags[0]}" == "${slimagetag}"  ]; then
 	pubmaster=1
     fi
     
     if [ ${#imagetags[@]} -gt 1 ] && [ "${imagetags[0]}" == "${mastertag}"  ] && [ "${imagetags[1]}" == "${slimagetag}"  ]   ;then
 	pubmaster=1
     fi
-
+    
     
     #define environment
     export ROOT_DIR="${procdir}"
@@ -624,7 +659,7 @@ function run_coreg_stripmap()
 	
 	#get the process's hdfs folder
 	local hdfsroot=`ciop-browseresults -r "${_WF_ID}" | sed 's@/node@ /node@g' | awk '{print $1}' | sort --unique`
-	export_folder "${hdfsroot}/node_coreg/data" ${pubsmtemp} ${tagsm}
+	#export_folder "${hdfsroot}/node_coreg/data" ${pubsmtemp} ${tagsm}
 	 
 	rm -rf "${pubsmtemp}"
 	
@@ -719,4 +754,81 @@ function run_coreg_process()
     fi
 
     return ${SUCCESS}
+}
+
+
+
+function export_image_coreg_results
+{
+    if [ $# -lt 2  ]; then
+	ciop-log "ERROR" "Usage $FUNCTION serverdir imagetag"
+	return $ERRMISSING
+    fi
+
+    local serverdir="$1"
+    local imagetag="$2"
+
+    local orbnum=""
+    
+        #TO-DO check for TOPS or SM
+    local immodetag=""
+    
+    product_tag_get_mode "${imagetag}" immodetag || {
+		ciop-log "ERROR" "unable to infer acquisition mode from image tag ${imagetag}"
+	return ${ERRINVALID}
+    }
+    
+    [ -z "${immodetag}" ] && {
+	ciop-log "ERROR" "unable to infer acquisition mode from image tag ${immagetag}"
+	return ${ERRINVALID}
+    }
+    
+
+    if [ "${immodetag}" == "IW" ] ||  [ "${immodetag}" == "EW" ] ; then
+	ciop-log "INFO" "mode tag ${immodetag} ${imagetag}"
+	return $SUCCESS
+    fi
+
+    product_tag_get_orbnum "${imagetag}" orbnum || {
+	ciop-log "ERROR" "Cannot get orbit num for tag ${imagetag}"
+	return ${ERRINVALID}
+    }
+
+    #create temporary folder
+    local tempodir=$(mktemp -d "${serverdir}/TEMP/pubdir_XXXXXX")
+    
+    if [ -z "$tempodir" ]; then
+	ciop-log "ERROR" "Cannot create folder in ${serverdir}/TEMP "
+	return ${ERRPERM}
+    fi
+
+    local pubdir=$(procdirectory ${tempodir})
+
+    if [ -z "${pubdir}" ]; then
+	ciop-log "ERROR" "Cannot create folder in ${tempodir} "
+	return ${ERRPERM}
+    fi
+
+    
+
+    ln -s  ${serverdir}/DAT/GEOSAR/${orbnum}.geosar ${pubdir}/DAT/GEOSAR/
+    ln -s  ${serverdir}/DAT/GEOSAR/${orbnum}.geosar_ext ${pubdir}/DAT/GEOSAR/
+    ln -s ${serverdir}/ORB/${orbnum}.orb ${pubdir}/ORB/
+    ln -s ${serverdir}/GEO_CI2_EXT_LIN/geo_${orbnum}_${orbnum}.* ${pubdir}/GEO_CI2_EXT_LIN/
+    ln -s ${serverdir}/SLC_CI2/doppler_${orbnum} ${pubdir}/SLC_CI2/
+    ln -s ${serverdir}/GEO_CI2/${orbnum}_coregistration.log ${pubdir}/log/
+    ln -s ${serverdir}/GEO_CI2_EXT_LIN/${orbnum}_linear_coregistration.log ${pubdir}/log/
+    
+    local publink=${tempodir}/${imagetag}
+
+    ln -s ${pubdir} ${publink}
+
+    ciop-publish -a -r ${publink} || {
+	ciop-log "ERROR" "Failed to publish coreg results for image ${imagetag}"
+	return ${ERRGENERIC}
+    }
+
+
+    return $SUCCESS
+    
 }

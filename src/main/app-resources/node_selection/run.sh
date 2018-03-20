@@ -165,17 +165,24 @@ function main()
 	return ${ERRGENERIC}
     }
 
-    local smdatasetfile=`hadoop dfs -lsr "${smdir}" | grep dataset.txt | awk '{print $8}'`
-    
-    [ -z "${smdatasetfile}" ] && {
-	ciop-log "ERROR" "Unable to find Master image dataset file"
+
+    local tempodir=`mktemp -d ${serverdir}/TEMP/SMDAT_XXXXX`
+    if [ -z "${tempodir}" ]; then
+	ciop-log "ERROR" "Unable to create temporary folder"
+	procCleanup 
+	echo ""
+	return ${ERRGENERIC}
+    fi
+
+    ciop-copy "hdfs://${smdir}/DATASET/dataset.txt" -q -O "${tempodir}" || {
+	ciop-log "ERROR" "Unable to copy SM dataset.txt file"
 	procCleanup 
 	echo ""
 	return ${ERRGENERIC}
     }
 
     #`cat ${datasetlist} | sed 's/@/ /g' | awk '{print $1}'`
-    local smref=`hadoop dfs -cat ${smdatasetfile} | sed 's/@/ /g' | awk '{print $2}'`
+    local smref=`cat ${tempodir}/dataset.txt | sed 's/@/ /g' | awk '{print $2}'`
     
     [ -z "${smref}" ] && {
 	ciop-log "ERROR" "Empty Master image ref"
@@ -222,10 +229,14 @@ function main()
     local stageout="${serverdir}/DAT/stageout.txt"
     echo "" > "${stageout}"
     for imagetag in `cat ${datasetlist} | sed 's/@/ /g' | awk '{print $1}'`;do
-	if [ "${imagetag}" == "${smtag}" ]; then
-	    continue
+	#if [ "${imagetag}" == "${smtag}" ]; then
+	#    continue
+	#fi
+	if [ "${imagetag}" != "${smtag}" ]; then
+	    #continue
+	    echo "${smtag}@${imagetag}" >> ${stageout}
 	fi
-	echo "${smtag}@${imagetag}" > ${stageout}
+	
         echo "${smtag}@${imagetag}" | ciop-publish -s
     done
     
@@ -245,7 +256,13 @@ function main()
 #set trap
 trap trapFunction INT TERM
 
-create_lock ${_WF_ID} && {
+#lock file
+lock="${TMPDIR}/${_WF_ID}.lock"
+
+set -o noclobber
+
+echo "" > "${lock}" && {
+    ciop-log "INFO" "Running node_selection"
     export sm=$(main) || {
 	
 	exit ${ERRGENERIC}

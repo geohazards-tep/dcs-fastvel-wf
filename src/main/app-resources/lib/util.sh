@@ -192,6 +192,45 @@ fi
 return ${SUCCESS}
 }
 
+# Retries a command a with backoff.
+#
+# The retry count is given by ATTEMPTS (default 5), the
+# initial backoff timeout is given by TIMEOUT in seconds
+# (default 1.)
+#
+# Successive backoffs double the timeout.
+#
+# Beware of set -e killing your whole script!
+function with_backoff {
+  local max_attempts=${ATTEMPTS-5}
+  local timeout=${TIMEOUT-1}
+  local attempt=0
+  local exitCode=0
+
+  while [[ $attempt < $max_attempts ]]
+  do
+    "$@"
+    exitCode=$?
+
+    if [[ $exitCode == 0 ]]
+    then
+      break
+    fi
+
+    sleep $timeout
+    attempt=$(( attempt + 1 ))
+    timeout=$(( timeout * 2 ))
+    ciop-log "INFO" "${FUNCNAME[0]} failed for $@. Attempt ${attempt}/${max_attempts}"
+  done
+
+  if [[ $exitCode != 0 ]]
+  then
+    ciop-log "ERROR" "${FUNCNAME[0]} failed for $@"
+  fi
+
+  return $exitCode
+}
+
 
 # Public: Download an image from the catalog
 #
@@ -216,13 +255,13 @@ get_data() {
                                                                                                                                                                  
   [ "${ref:0:4}" == "file" ] || [ "${ref:0:1}" == "/" ] && enclosure=${ref}                                                                                      
                                                                                                                                                                  
-  [ -z "$enclosure" ] && enclosure=$( opensearch-client  -f atom  "${ref}" enclosure )                                                                                     
+  [ -z "$enclosure" ] && enclosure=$( opensearch-client  -f atom -p do=terradue "${ref}" enclosure )                                                                                     
   res=$?                                                                                                                                                         
   enclosure=$( echo ${enclosure} | tail -1 )                                                                                                                     
   [ $res -eq 0 ] && [ -z "${enclosure}" ] && return ${ERRSTGIN}                                                                                               
   [ $res -ne 0 ] && enclosure=${ref}                                                                                                                             
                                                                                                                                                                  
-  local_file="$( echo ${enclosure} | ciop-copy -f -U -O ${target} - 2> /dev/null )"                                                                              
+  local_file="$( echo ${enclosure} | with_backoff ciop-copy -f -U -O ${target} - 2> /dev/null )"                                                                              
   res=$?                                                                                                                                                         
   [ ${res} -ne 0 ] && return ${res}                                                                                                                              
   echo ${local_file}                                                                                                                                             
@@ -502,112 +541,6 @@ function s1_bursts_aoi()
 	return 0
 }
 
-
-function create_interf_properties()
-{
-    if [ $# -lt 4 ]; then
-	echo "$FUNCNAME : usage:$FUNCNAME file description serverdir geosar"
-	return 1
-    fi
-
-    local inputfile=$1
-    local fbase=`basename ${inputfile}`
-    local description=$2
-    local serverdir=$3
-    local geosarm=$4
-    local geosars=""
-    if [ $# -ge 5 ]; then
-    geosars=$5
-    fi
-    
-    local datestart=$(geosar_time "${geosarm}")
-    
-    local dateend=""
-    if [ -n "$geosars" ]; then
-	dateend=$(geosar_time "${geosars}")
-    fi
-
-    local propfile="${inputfile}.properties"
-    echo "title = DIAPASON InSAR Sentinel-1 TOPSAR(IW,EW) - ${description} - ${datestart} ${dateend}" > "${propfile}"
-    echo "Description = ${description}" >> "${propfile}"
-    local sensor=`grep -h "SENSOR NAME" "${geosarm}" | cut -b 40-1024 | awk '{print $1}'`
-    echo "Sensor\ Name = ${sensor}" >> "${propfile}"
-    local masterid=`head -1 ${serverdir}/masterid.txt`
-    if [ -n "${masterid}" ]; then
-	echo "Master\ SLC\ Product = ${masterid}" >> "${propfile}"
-    fi 
-    local slaveid=`head -1 ${serverdir}/slaveid.txt`
-    if [ -n "${slaveid}" ]; then
-	echo "Slave\ SLC\ Product = ${slaveid}" >> "${propfile}"
-    fi 
-
-    #look for 2jd utility to convert julian dates
-    if [ -n "`type -p j2d`"  ] && [ -n "${geosars}" ]; then
-	local jul1=`grep -h JULIAN "${geosarm}" | cut -b 40-1024 | sed 's@[^0-9]@@g'`
-	local jul2=`grep -h JULIAN "${geosars}" | cut -b 40-1024 | sed 's@[^0-9]@@g'`
-	if [ -n "${jul1}"  ] && [ -n "${jul2}" ]; then 
-	
-	    local dates=""
-	    for jul in `echo -e "${jul1}\n${jul2}" | sort -n`; do
-		local julday=`echo "2433283+${jul}" | bc -l`
-		local dt=`j2d ${julday} | awk '{print $1}'`
-		
-		dates="${dates} ${dt}"
-	    done
-	   
-	fi
-	echo "Observation\ Dates = $dates" >> "${propfile}"
-	
-	local timeseparation=`echo "$jul1 - $jul2" | bc -l`
-	if [ $timeseparation -lt 0 ]; then
-	    timeseparation=`echo "$timeseparation*-1" | bc -l`
-	fi
-	
-	if [ -n "$timeseparation" ]; then
-	    echo "Time\ Separation\ \(days\) = ${timeseparation}" >> "${propfile}"
-	fi
-    fi
-
-    local altambig="${serverdir}/DAT/AMBIG.dat"
-    if [ -e "${altambig}" ] ; then
-	local info=($(grep -E "^[0-9]+" "${altambig}" | head -1))
-	if [  ${#info[@]} -ge 6 ]; then
-	    #write incidence angle
-	    echo "Incidence\ angle\ \(degrees\) = "${info[2]} >> "${propfile}"
-	    #write baseline
-	    local bas=`echo ${info[4]} | awk '{ if($1>=0) {print $1} else { print $1*-1} }'`
-	    echo "Baseline\ \(meters\) = ${bas}" >> "${propfile}"
-	else
-	    ciop-log "INFO" "Invalid format for AMBIG.DAT file "
-	fi
-    else
-	ciop-log "INFO" "Missing AMBIG.DAT file in ${serverdir}/DAT"
-    fi 
-    
-    local satpass=`grep -h "SATELLITE PASS" "${geosarm}"  | cut -b 40-1024 | awk '{print $1}'`
-    
-    if [ -n "${satpass}" ]; then
-	echo "Orbit\ Direction = ${satpass}" >> "${propfile}"
-    fi
-
-    local publishdate=`date +'%B %d %Y' `
-    echo "Processing\ Date  = ${publishdate}" >> "${propfile}"
-    
-    local logfile=`ls ${serverdir}/ortho_amp.log`
-    if [ -e "${logfile}" ]; then
-	local resolution=`grep "du mnt" "${logfile}" | cut -b 15-1024 | sed 's@[^0-9\.]@\n@g' | grep [0-9] | sort -n | tail -1`
-	if [ -n "${resolution}" ]; then
-	    echo "Resolution\ \(meters\) = ${resolution}" >> "${propfile}"
-	fi
-    fi
-    
-    local wktfile="${serverdir}/wkt.txt"
-    
-    if [ -e "${wktfile}" ]; then
-	local wkt=`head -1 "${wktfile}"`
-	echo "geometry = ${wkt}" >> "${propfile}"
-    fi
-}
 
 # Public: Download dem from an image catalogue reference
 #
@@ -1237,6 +1170,9 @@ function ext2dop()
 	return ${ERRGENERIC}
     }
     local geosar=`ls ${serverdir}/DAT/GEOSAR/*.geosar | head -1`
+    #
+    perl -pi -e 's@MODE                                              ---@MODE                                              IM@g' "${geosar}"
+    
     tag=$(geosartag "${geosar}")
     
     [ -z "$tag" ] && {
@@ -1256,17 +1192,27 @@ function ext2dop()
 	return ${ERRGENERIC}	
     fi
 
-    echo "${tag}" > ${serverdir}/DAT/datatag.txt 2<&1
+    local mode=""
+    product_tag_get_mode "${tag}" mode
+
+    
     mv ${serverdir}/log/extraction*.log "${serverdir}/log/${tag}_extraction.log"
     #precise orbits
     preciseorb "${geosar}" "${serverdir}"
     
+    #check for dem and aoi
+    local demdesc=${serverdir}/DAT/dem.dat
+    local aoidesc=${serverdir}/DAT/aoi.txt
+    local roidef=""
+
     #check for raw images
     local gstatus=`grep -ih "STATUS" "${geosar}" | cut -b 40-1024 | sed 's@[[:space:]]@@g'`
     
     if [ "$gstatus" == "RAW" ]; then
-	#run focusing
-	prisme.pl --geosar="$geosar" --mlaz=${mlazi} --mlran=${mlrang}  --mltype=byt --tmpdir="${serverdir}/TEMP" --outdir="${serverdir}/SLC_CI2/"  --tmpdir="${serverdir}/TEMP" --rate > "${serverdir}/log/${tag}_prisme.log" 2<&1
+	local roiopt=""
+	
+        #run focusing
+	prisme.pl --geosar="$geosar" --mlaz=${mlazi} --mlran=${mlrang}  --mltype=byt --tmpdir="${serverdir}/TEMP" --outdir="${serverdir}/SLC_CI2/"  --tmpdir="${serverdir}/TEMP" --rate "${roiopt}"  > "${serverdir}/log/${tag}_prisme.log" 2<&1
 	local prismestatus=$?
 	if [ $prismestatus -ne 0 ]; then
 	    #print message
@@ -1277,7 +1223,22 @@ function ext2dop()
 	#delete raw data
 	rm -f "${serverdir}"/RAW_C5B/*
     fi
+
+        
+    # get roi
+    if [ -e "${demdesc}" ] && [ -e "${aoidesc}" ]; then
+	local aoi=`head -1 ${aoidesc}`
+	ciop-log "INFO" "aoi is $aoi"
+	roidef=$(geosar_get_aoi_coords2 "${geosar}" "${aoi}" "${demdesc}" "${serverdir}/log")
+    fi
     
+    
+    #cut slc
+    if [ -n "${roidef}" ] && [ "${mode}" == "IM" ]; then
+	ciop-log "INFO" "cutting image over region ${roidef}"
+	roiopt="--roi ${roidef}"
+	slcroi.pl --geosar="$geosar" ${roiopt}  > ${serverdir}/log/${tag}_slcroi.log 2<&1
+    fi
 
     #ML & doppler
     ls -tra ${serverdir}/DAT/GEOSAR/*.geosar | head -1 | ml_all.pl --mlaz=${mlazi} --mlran=${mlrang} --dir="${serverdir}/SLC_CI2"  --tmpdir="${serverdir}/TEMP" > "${serverdir}/log/${tag}_ml.log" 2<&1
@@ -1292,6 +1253,16 @@ function ext2dop()
 
     #
     setlatlongeosar.pl --geosar="${geosar}" --tmpdir="${serverdir}/TEMP"   > "${serverdir}/log/${tag}_corner_latlon.log" 2<&1
+
+    #run precise SM
+    if [ -e "${demdesc}" ] && [ "${mode}" == "IM" ]; then
+	precise_sm.pl --sm="${geosar}" --demdesc="${demdesc}" --recor --serverdir="${serverdir}" --tmpdir="${serverdir}"/TEMP > "${serverdir}/log/${tag}_precise.log" 2<&1
+	rm -rf "${serverdir}"/TEMP/simu_sar* > /dev/null 2<&1
+    fi
+
+    tag=$(geosartag "${geosar}")
+    echo "${tag}" > ${serverdir}/DAT/datatag.txt 2<&1
+
 
     return 0
 }
@@ -1827,7 +1798,7 @@ function geosar_get_aoi_coords2()
     local coordsfile=${tmpdir_}/aoi2sarcoords.txt
 
     aoi2coords.pl --geosar="${geosar}" --demdesc="${dem}" --minlon=${aoi[0]} --minlat=${aoi[1]} --maxlon=${aoi[2]} --maxlat=${aoi[3]} --outfile="${coordsfile}" > ${tmpdir_}/aoi2coords.log 2<&1
-        
+    
     if [ ! -e "${coordsfile}" ]; then
 	ciop-log "INFO" "$FUNCTION aoi2coords fail"
 	return ${ERRGENERIC}
@@ -2054,11 +2025,39 @@ function get_global_parameter()
 	return $ERRMISSING
     fi
     
-    local value=`hadoop dfs -cat ${global_param_file} | grep ${param_name} | cut -f2 -d "="`
+    local tempodir="${TMPDIR}"
+    if [ -z "${tempodir}" ]; then
+	tempodir="/tmp"
+    fi
+
+    local temp=$(mktemp -d ${tempodir}/globparam_XXXXX) || {
+	ciop-log "ERROR" "Cannot create temporary folder"
+	return ${ERRPERM}
+    }
+
+    local parmfile=${temp}/`basename ${global_param_file}`
+    
+    ciop-copy "hdfs://${global_param_file}" -q -O "${temp}" || {
+	ciop-log "ERROR" "Cannot copy ${global_param_file}"
+	return ${ERRGENERIC}
+    }
+
+    if [ ! -e "${parmfile}" ]; then
+	ciop-log "ERROR" "Failed to import ${global_param_file}"
+	return ${ERRGENERIC}
+    fi
+
+    
+    
+
+    local value=`cat ${parmfile} | grep ${param_name} | cut -f2 -d "="`
     if [ -z "${value}" ]; then
 	ciop-log "ERROR" "Parameter ${param_name} not found in ${global_param_file}"
 	return $ERRMISSING
     fi
+    
+    rm -rf "${temp}" > /dev/null 2<&1
+
     
     echo $value
     return $SUCCESS
@@ -2207,6 +2206,14 @@ function create_interf_properties()
 	local wkt=`head -1 "${wktfile}"`
 	echo "geometry = ${wkt}" >> "${propfile}"
     fi
+
+    #rename file so name matches metadata description
+    local inputbase=$(basename "${inputfile}")
+    local ext="${inputbase#*\.}"
+    local renamed=`dirname ${inputfile}`"`echo "/FASTVEL-IFG-${datestart} ${dateend}-${description}" | sed 's@[[:space:]]@_@g;s@:@@g'`"."$ext"
+    mv "${inputfile}" "${renamed}"
+    mv "${propfile}" "${renamed}"".properties"
+    
 }
 
 
@@ -2372,4 +2379,53 @@ if [ $status -ne 0 ]; then
 fi
 
 return $SUCCESS
+}
+
+function download_dem_from_aoi()
+{
+    if [ $# -lt 2 ]; then
+	ciop-log "ERROR" "$FUNCNAME:aoi directory"
+	return ${ERRMISSING}
+    fi
+
+    local aoistr="$1"
+    local outdir="$2"
+    declare -a aoi
+    aoi=(`echo ${aoistr} | sed 's@,@ @g'`)
+    if [ ${#aoi[@]} -lt 4 ]; then
+	ciop-log "ERROR" "Bad aoi definition $aoistr"
+    fi
+
+    local demurl="http://dedibox.altamira-information.com/demdownload?lat="${aoi[1]}"&lat="${aoi[3]}"&lon="${aoi[0]}"&lon="${aoi[2]}
+    
+    local demtif=${outdir}/dem.tif
+    
+    local downloadcmd="curl -o \"${demtif}\" \"${demurl}\" "
+    
+    eval "${downloadcmd}" > ${outdir}/demdownload.log 2<&1
+    
+        #check downloaded file
+    if [ ! -e "${demtif}" ]; then
+	ciop-log "ERROR" "Unable to download DEM data"
+	ciop-log "DEBUG" `cat ${outdir}/demdownload.log`
+	return ${ERRGENERIC}
+    fi
+
+        #check it is a tiff
+    gdalinfo "${demtif}" > /dev/null 2<&1 || {
+	ciop-log "ERROR" "File ${demtif} is not valid"
+	return ${ERRGENERIC}
+    }
+
+    #create DEM descriptor
+    tifdemimport.pl --intif="${demtif}" --outdir="${outdir}" > "${outdir}/demimport.log" 2<&1
+    importst=$?
+    
+    if [ $importst -ne 0 ] || [ ! -e "${outdir}/dem.dat" ]; then
+	ciop-log "ERROR" "DEM conversion failed"
+	return ${ERRGENERIC}
+    fi
+
+
+    return $SUCCESS
 }
