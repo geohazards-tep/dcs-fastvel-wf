@@ -32,6 +32,9 @@ export DAT_DIR=/opt/diapason/dat.dir
 export exedir=${EXE_DIR}
 export datdir=${DAT_DIR}
 
+#IDL License
+export LM_LICENSE_FILE=1700@idl.terradue.com
+
 
 #main
 function main()
