@@ -1608,7 +1608,7 @@ function generate_ortho_interferogram()
     ortho2geotiff.pl --ortho="${interfdir}/amp_${master}_${slave}_ml11_ortho.r4" --demdesc="${ortho_dem}"  --gep  --colortbl=BLACK-WHITE --mask  --alpha="${interfdir}/coh_${master}_${slave}_ml11_ortho.rad" --min=5  --outfile="${amporthotifrgb}" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/amp_ortho_${master}_${slave}.log 2<&1
     ortho2geotiff.pl --ortho="${interfdir}/coh_${master}_${slave}_ml11_ortho.rad" --demdesc="${ortho_dem}" --outfile="${cohorthotif}" --tmpdir=${procdir}/TEMP  >> ${procdir}/log/coh_ortho_${master}_${slave}.log 2<&1
 
-    ortho2geotiff.pl --ortho="${interfdir}/coh_${master}_${slave}_ml11_ortho.rad" --demdesc="${ortho_dem}" --outfile="${cohorthotifrgb}" --colortbl=BLACK-WHITE --min=1 --max=255 --tmpdir=${procdir}/TEMP  >> ${procdir}/log/coh_ortho_${master}_${slave}.log 2<&1
+    ortho2geotiff.pl --ortho="${interfdir}/coh_${master}_${slave}_ml11_ortho.rad" --demdesc="${ortho_dem}" --outfile="${cohorthotifrgb}" --colortbl=BLACK-WHITE --mask --min=1 --max=255 --tmpdir=${procdir}/TEMP  >> ${procdir}/log/coh_ortho_${master}_${slave}.log 2<&1
     ln -s ${procdir}/log/amp_ortho_${master}_${slave}.log ${interfdir}/ortho_amp.log
     if [ ! -e "${interfdir}/pha_${master}_${slave}_ml11_ortho.pha" ]; then
 	ciop-log "ERROR" "Failed to generate ortho interferogram"
