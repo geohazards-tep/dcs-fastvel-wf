@@ -8,7 +8,7 @@
   <parent>
     <groupId>com.terradue</groupId>
     <artifactId>dcs-python-parent</artifactId>
-    <version>2.1.0-docker-SNAPSHOT</version>
+    <version>3.0.0-docker</version>
   </parent>
   <description>FASTVEL algorithm has been developed by TRE-Altamira for generating differential interferograms or PSI-based mean displacement velocity maps from a set of Sentinel-1 or ASAR images</description>
   <version>1.4.4</version>
@@ -41,7 +41,7 @@
             <executions>
               <execution>
                 <id>generate-rpm</id>
-		<phase>compile</phase>
+                <phase>compile</phase>
                 <goals>
                   <goal>rpm</goal>
                 </goals>
@@ -66,9 +66,9 @@
                     <require>perl-DBI</require>
                     <require>perl-DBD-SQLite</require>
                     <require>gdalcrop</require>
-		    <require>wget</require>
+                    <require>wget</require>
                     <require>python-pip</require>
-		    <require>python-devel</require>
+                    <require>python-devel</require>
                     <require>procmail</require>
                   </requires>
                 </configuration>
