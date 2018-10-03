@@ -223,7 +223,12 @@ function main()
     }
 
     #perform precise_sm
-    compute_precise_sm "${serverdir}" "${smtag}" "${wkid}"
+    compute_precise_sm "${serverdir}" "${smtag}" "${wkid}" || {
+	ciop-log "ERROR" "Failed to compute Precise T0/NR for Master Image"
+	procCleanup
+	echo ""
+	return ${ERRGENERIC}
+    }
 
     #data passed to the next node
     local stageout="${serverdir}/DAT/stageout.txt"

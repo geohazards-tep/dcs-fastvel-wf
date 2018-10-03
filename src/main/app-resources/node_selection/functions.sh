@@ -236,6 +236,29 @@ function run_selection()
 	return 1
     }
     
+    #
+    local list_interf_auto="${serverdir}/TEMP/list_interf_auto.txt"
+    local name_slc_auto="${serverdir}/TEMP/name_slc_auto.txt"
+
+    local list_interf_auto_erh="${serverdir}/TEMP/list_interf_auto_erh.txt"
+    local name_slc_auto_erh="${serverdir}/TEMP/name_slc_auto_erh.txt"
+    
+    local list_interf_auto_sub="${serverdir}/TEMP/list_interf_auto_sub.txt"
+    local name_slc_auto_sub="${serverdir}/TEMP/name_slc_auto_sub.txt"
+    
+    if [ ! -e "${list_interf_auto}" ] && [ ! -s "${list_interf_auto_erh}" ] && [ -s "${list_interf_auto_sub}" ]; then
+	cp "${list_interf_auto_sub}" "${list_interf_auto}"
+	cp "${name_slc_auto_sub}" "${name_slc_auto}"
+    fi
+
+    if [ ! -e "${list_interf_auto}" ] && [ ! -s "${list_interf_auto_sub}" ] && [ -s "${list_interf_auto_erh}" ]; then
+	cp "${list_interf_auto}" "${list_interf_auto}"
+	cp "${name_slc_auto}" "${name_slc_auto}"
+    fi
+
+
+
+
     local smtag=$(geosartag "${geosarsm}")
     
     echo ${smtag} > "${serverdir}/TEMP/SM.txt"
@@ -253,9 +276,11 @@ function run_selection()
 	    ciop-log "ERROR" "Image doppler filtering results in no interferograms "
 	    return $ERRGENERIC
 	fi
+    else
+	return ${isstatus}
     fi
 
-    return ${isstatus}
+    return ${SUCCESS}
 }
 
 # Public: create a file merging the contents 
@@ -523,6 +548,7 @@ function compute_precise_sm()
     else
 	local msg=`cat ${procdir}/log/precise_sm.log`
 	ciop-log "DEBUG" "${msg}"
+	return ${ERRGENERIC}
     fi
 
     ciop-log "INFO" "Precise sm status ${precstatus}"
