@@ -697,6 +697,13 @@ function publish_final_results_mta () {
 		return ${ERRMISSING}
 	fi
 
+	if [ -d "$pubdir/QC_ALL_STEPS" ]; then
+  		zip -rj ${pubdir}/QC_pngs.zip ${pubdir}/QC_ALL_STEPS/
+		ciop-publish -m ${pubdir}/QC_pngs.zip
+	else
+		ciop-log "ERROR" "QC png folder not found"
+	fi
+
 	local ntifs=`ls ${pubdir}/*.tif | wc -l`
 	
 	if [ $ntifs -eq 0 ]; then
