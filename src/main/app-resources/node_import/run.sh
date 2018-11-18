@@ -56,6 +56,15 @@ function main()
 	echo "${aoidef}" > ${serverdir}/DAT/aoi.txt
 	download_dem_from_aoi "${aoidef}" "${serverdir}/DAT"
     fi
+
+    aoi2shp "${aoidef}" ${serverdir}/TEMP "AOI"
+    local aoishape="${serverdir}/TEMP/AOI.shp"
+    if [ ! -e "${aoishape}" ]; then
+	ciop-log "ERROR" "Failed to create shapefile from aoi definition ${aoidef}"
+	procCleanup
+	return ${ERRGENERIC}
+    fi
+
     ciop-log "INFO" "Downloading ${inref}"
     
     local image=$( get_data "${inref}" ${serverdir}/CD/)
@@ -84,6 +93,30 @@ function main()
 	#zip file extracted 
 	#zip file may be removed
 	rm "$z"
+	
+	local cov_check="/opt/diapason/exe.dir/s1_aoi_coverage"
+	
+	if [ -e "${cov_check}" ]; then
+
+	#check aoi coverage for s1 iw mode
+	    local headers=$(find ${serverdir}/CD -name "*[ie]*.xml" -print | grep -v calibr | grep -i "${pol}")
+	    if [ ${#headers[@]} -gt 0 ];then
+		local opt=""
+		for h in ${headers[@]}; do
+		    opt="${opt} -h ${h}"
+		done
+		
+		
+		${cov_check} ${opt} -a "${aoishape}" -p 100 
+		local cov_status=$?
+		if [ ${cov_status} -ne 0 ]; then
+		    ciop-log "ERROR" "Insufficient coverage for image in file "$(basename ${z})
+		    procCleanup
+		    return ${ERRGENERIC}
+		fi
+	    fi
+	    
+	fi
     done
     
     
@@ -116,9 +149,6 @@ function main()
     
     product_tag_get_mode "${prodtag}" acqmode
     
-    if [ "${acqmode}" == "IW" ] || [ "${acqmode}" == "EW" ]; then 
-	find ${serverdir}/SLC_CI2 -iname "*SLC*.ci2" -print -o -iname "*SLC*.rad" -print | xargs rm
-    fi
 
     #write product ref in DATASET/dataset.txt
     mkdir -p ${serverdir}/DATASET || {
@@ -171,13 +201,14 @@ function main()
 
     procCleanup 
     
+    cd "${TMPDIR}"
+
 
     echo "${prodtag}"  | ciop-publish -s  || {
 	ciop-log "ERROR" "Failed to publish string ${prodtag}"
 	return ${ERRGENERIC}
     }
 
-    
 
     return $SUCCESS
 }
@@ -185,10 +216,11 @@ function main()
 #loop through image list
 while read dataref
 do
-    
+    set -x
+    cd "${TMPDIR}"
     main ${dataref} || {
 	ciop-log "ERROR" "Failed to import data from ${dataref}"
     }
     ciop-log "INFO" "End of import for ${dataref}"
-
+    set +x
 done  
