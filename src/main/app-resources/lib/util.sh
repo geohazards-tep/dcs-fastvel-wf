@@ -2486,7 +2486,7 @@ function safe_cut_fat()
 	for h in ${headers[@]}; do
 	    local swath=`echo ${h} | grep -o "[ie]w[0-9]*"`
 	    # check coverage
-	    /tmp/s1_aoi_coverage -h ${h} -a "${shape}" -p 1 > /dev/null 2<&1
+	    /opt/diapason/exe.dir/s1_aoi_coverage -h ${h} -a "${shape}" -p 1 > /dev/null 2<&1
 	    local cov_status=$?
 	    if [ ${cov_status} -ne 0 ]; then
 		#swath does't cover aoi
