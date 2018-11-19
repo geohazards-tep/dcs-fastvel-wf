@@ -149,6 +149,9 @@ function main()
     
     product_tag_get_mode "${prodtag}" acqmode
     
+    if [ "${acqmode}" == "IW" ] || [ "${acqmode}" == "EW" ]; then 
+	find ${serverdir}/SLC_CI2 -iname "*SLC*.ci2" -print -o -iname "*SLC*.rad" -print | xargs rm
+    fi
 
     #write product ref in DATASET/dataset.txt
     mkdir -p ${serverdir}/DATASET || {
