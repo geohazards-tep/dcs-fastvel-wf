@@ -1298,7 +1298,13 @@ function preciseorb()
     local storb=""
     
     case "$sensor" in
-	ERS*) diaporb.pl --geosar="${geosar}" --type=delft --outdir="${serverdir}/ORB" --exedir="${EXE_DIR}" > "${serverdir}/log/${tag}_precise_orbits.log" 2<&1 ;;
+	ERS*) 
+	    diaporb.pl --geosar="${geosar}" --type=delft --outdir="${serverdir}/ORB" --exedir="${EXE_DIR}" > "${serverdir}/log/${tag}_precise_orbits.log" 2<&1 
+	    storb=$?
+	    if [ $storb -ne 0 ]; then
+		diaporb.pl --geosar="${geosar}" --type=prc --outdir="${serverdir}/ORB" --exedir="${EXE_DIR}" > "${serverdir}/log/${tag}_precise_orbits.log" 2<&1
+	    fi
+	    ;;
 	ENVISAT*)
 	    diaporb.pl --geosar="${geosar}" --type=doris --mode=1 --dir="${serverdir}/VOR" --outdir="${serverdir}/ORB" --exedir="${EXE_DIR}" >> "${serverdir}/log/${tag}_precise_orbits.log" 2<&1
 	    storb=$?
