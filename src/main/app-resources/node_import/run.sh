@@ -76,6 +76,12 @@ function main()
 	return ${ERRSTGIN}
     fi
     
+    if [ "`find ${serverdir}/CD -type f -print | wc -l`" == "0"  ]; then
+	ciop-log "ERROR" "Failed to download ${inref}"
+	procCleanup
+	return ${ERRSTGIN}
+    fi
+
     ciop-log "INFO" "Downloaded ${image}"
     
 
