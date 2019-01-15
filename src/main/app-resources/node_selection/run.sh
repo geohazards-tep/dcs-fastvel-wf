@@ -253,6 +253,9 @@ function main()
     }
     
 
+    #publish dataset summary
+    dataset_summary "${wkid}" "${serverdir}/TEMP"
+
     procCleanup
     echo ${smtag}
     return ${SUCCESS}
@@ -268,11 +271,12 @@ set -o noclobber
 
 echo "" > "${lock}" && {
     ciop-log "INFO" "Running node_selection"
-    export sm=$(main) || {
+    sm=$(main) || {
 	
 	exit ${ERRGENERIC}
     }
-    
+    export sm
+
     [ -z "$sm" ] && {
 	exit ${ERRGENERIC}
     }
