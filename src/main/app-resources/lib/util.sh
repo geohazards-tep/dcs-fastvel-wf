@@ -1298,7 +1298,13 @@ function preciseorb()
     local storb=""
     
     case "$sensor" in
-	ERS*) diaporb.pl --geosar="${geosar}" --type=delft --outdir="${serverdir}/ORB" --exedir="${EXE_DIR}" > "${serverdir}/log/${tag}_precise_orbits.log" 2<&1 ;;
+	ERS*) 
+	    diaporb.pl --geosar="${geosar}" --type=delft --outdir="${serverdir}/ORB" --exedir="${EXE_DIR}" > "${serverdir}/log/${tag}_precise_orbits.log" 2<&1 
+	    storb=$?
+	    if [ $storb -ne 0 ]; then
+		diaporb.pl --geosar="${geosar}" --type=prc --outdir="${serverdir}/ORB" --exedir="${EXE_DIR}" > "${serverdir}/log/${tag}_precise_orbits.log" 2<&1
+	    fi
+	    ;;
 	ENVISAT*)
 	    diaporb.pl --geosar="${geosar}" --type=doris --mode=1 --dir="${serverdir}/VOR" --outdir="${serverdir}/ORB" --exedir="${EXE_DIR}" >> "${serverdir}/log/${tag}_precise_orbits.log" 2<&1
 	    storb=$?
@@ -2428,4 +2434,76 @@ function download_dem_from_aoi()
 
 
     return $SUCCESS
+}
+
+
+function dataset_summary() 
+{
+    local wf_id="$1"
+    local folder="$2"
+    local summary="${folder}/dataset.dat"
+   
+    if [ ! -d "${folder}" ];then
+	return ${ERRINVALID}
+    fi
+
+    for imagefolder in `ciop-browseresults -r ${wf_id} -j node_import`; do
+
+	local dir=`mktemp -d ${folder}/img_XXXXXX`
+	if [ -z "${dir}" ]; then
+	    continue
+	fi
+	
+	local datatag="hdfs://${imagefolder}/DAT/datatag.txt"
+	local prodref="hdfs://${imagefolder}/DATASET/prodref.txt"
+	
+	ciop-copy "${datatag}" -q -O "${dir}"
+	local tag=`head -1 ${dir}/datatag.txt`
+	ciop-copy "${prodref}" -q -O "${dir}"
+	local ref=`head -1 ${dir}/prodref.txt`
+	
+	if [ -z "${tag}" ] || [ -z "${prodref}" ]; then
+	    continue
+	fi
+	
+	echo "tag:${tag} ref:$ref " >> ${summary}
+	
+	rm -rf "${dir}"
+    done
+
+    ciop-publish -m ${summary}
+    
+    return $SUCCESS
+}
+
+
+function safe_cut_fat()
+{
+    if [ $# -lt 2 ]; then
+	return ${ERRMISSING}
+    fi
+
+    local folder="$1"
+    local shape="$2"
+    local headers=($(find ${folder} -name "*[ie]*.xml" -print | grep -v calibr | grep -i "${pol}"))
+    
+
+    if [ ${#headers[@]} -gt 0  ]; then
+	for h in ${headers[@]}; do
+	    local swath=`echo ${h} | grep -o "[ie]w[0-9]*"`
+	    # check coverage
+	    /opt/diapason/exe.dir/s1_aoi_coverage -h ${h} -a "${shape}" -p 1 > /dev/null 2<&1
+	    local cov_status=$?
+	    if [ ${cov_status} -ne 0 ]; then
+		#swath does't cover aoi
+		# remove the tiff
+		for x in `find "${folder}" -iname "*${swath}*.tiff" -print` ; do
+		    ciop-log "INFO" "Deleting file ${x}"
+		    rm -f "${x}"
+		done
+	    fi
+	done
+    fi
+    
+    return ${SUCCESS}
 }
