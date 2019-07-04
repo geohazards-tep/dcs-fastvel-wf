@@ -1147,7 +1147,8 @@ function ext2dop()
 
     #product extraction
     if [ "${ext}" == "SAFE" ]; then
-	extract_any.pl --in="${product}" --serverdir="${serverdir}" --pol="${pol}" --tmpdir="${serverdir}/TEMP" > "${serverdir}/log/extraction_${tag}.log" 2<&1
+	export POL="${pol}"
+	extract_any.pl --in="${product}" --serverdir="${serverdir}"  --tmpdir="${serverdir}/TEMP" > "${serverdir}/log/extraction_${tag}.log" 2<&1
 	statusext=$?
     else
 	handle_tars.pl --in="${product}" --serverdir="${serverdir}" --pol="${pol}" --tmpdir="${serverdir}/TEMP" > "${serverdir}/log/extraction_${tag}.log" 2<&1
