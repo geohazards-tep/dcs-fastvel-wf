@@ -571,7 +571,7 @@ function download_dem_from_ref()
     local outputdir="$2"
 
     #look for the extent of the scene
-    local wkt=($(opensearch-client -f atom "$ref" wkt | sed 's@[a-zA-Z()]@@g' | sed 's@,@ @g'))
+    local wkt=($(opensearch-client -f atom "$ref" wkt | sed 's@^[a-zA-Z()]*@@g' | sed 's@[,()]@ @g' | awk '{for(i=1;i<=NF;i++){printf "%.10f ", $i};}'))
     
     if [ -z  "${wkt}" ]; then
 	ciop-log "ERROR " "Missing wkt info for ref $ref"
