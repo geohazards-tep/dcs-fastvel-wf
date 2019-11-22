@@ -571,7 +571,7 @@ function download_dem_from_ref()
     local outputdir="$2"
 
     #look for the extent of the scene
-    local wkt=($(opensearch-client -f atom "$ref" wkt | sed 's@[a-zA-Z()]@@g' | sed 's@,@ @g'))
+    local wkt=($(opensearch-client -f atom "$ref" wkt | sed 's@^[a-zA-Z()]*@@g' | sed 's@[,()]@ @g' | awk '{for(i=1;i<=NF;i++){printf "%.10f ", $i};}'))
     
     if [ -z  "${wkt}" ]; then
 	ciop-log "ERROR " "Missing wkt info for ref $ref"
@@ -1147,7 +1147,8 @@ function ext2dop()
 
     #product extraction
     if [ "${ext}" == "SAFE" ]; then
-	extract_any.pl --in="${product}" --serverdir="${serverdir}" --pol="${pol}" --tmpdir="${serverdir}/TEMP" > "${serverdir}/log/extraction_${tag}.log" 2<&1
+	export POL="${pol}"
+	extract_any.pl --in="${product}" --serverdir="${serverdir}"  --tmpdir="${serverdir}/TEMP" > "${serverdir}/log/extraction_${tag}.log" 2<&1
 	statusext=$?
     else
 	handle_tars.pl --in="${product}" --serverdir="${serverdir}" --pol="${pol}" --tmpdir="${serverdir}/TEMP" > "${serverdir}/log/extraction_${tag}.log" 2<&1
