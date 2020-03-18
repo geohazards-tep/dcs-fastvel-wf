@@ -464,7 +464,7 @@ function get_DEM()
 	return ${ERRGENERIC}
     fi
     
-    url="http://dedibox.altamira-information.com/demdownload?lat="${latitudes[0]}"&lat="${latitudes[1]}"&lon="${longitudes[0]}"&lon="${longitudes[1]}
+    url="http://dedibox.tre-altamira.com/demdownload?lat="${latitudes[0]}"&lat="${latitudes[1]}"&lon="${longitudes[0]}"&lon="${longitudes[1]}
     
     ciop-log "INFO : Downloading DEM from ${url}"
     
@@ -592,7 +592,7 @@ function download_dem_from_ref()
 
     
     
-    local demurl="http://dedibox.altamira-information.com/demdownload?lat="${lat[0]}"&lat="${lat[1]}"&lon="${lon[0]}"&lon="${lon[1]}
+    local demurl="http://dedibox.tre-altamira.com/demdownload?lat="${lat[0]}"&lat="${lat[1]}"&lon="${lon[0]}"&lon="${lon[1]}
     
     ciop-log "INFO " "Downloading DEM from ${demurl}"
     
@@ -1382,7 +1382,7 @@ function download_dem_from_anotation()
 	return ${ERRINVALID}
     fi
     
-    url="http://dedibox.altamira-information.com/demdownload?lat="${aoi[1]}"&lat="${aoi[3]}"&lon="${aoi[0]}"&lon="${aoi[2]}
+    url="http://dedibox.tre-altamira.com/demdownload?lat="${aoi[1]}"&lat="${aoi[3]}"&lon="${aoi[0]}"&lon="${aoi[2]}
     
     #echo "${url}"
     ciop-log "INFO : Downloading DEM from ${url}"
@@ -2403,7 +2403,7 @@ function download_dem_from_aoi()
 	ciop-log "ERROR" "Bad aoi definition $aoistr"
     fi
 
-    local demurl="http://dedibox.altamira-information.com/demdownload?lat="${aoi[1]}"&lat="${aoi[3]}"&lon="${aoi[0]}"&lon="${aoi[2]}
+    local demurl="http://dedibox.tre-altamira.com/demdownload?lat="${aoi[1]}"&lat="${aoi[3]}"&lon="${aoi[0]}"&lon="${aoi[2]}
     
     local demtif=${outdir}/dem.tif
     
