@@ -8,7 +8,7 @@
   <parent>
     <groupId>com.terradue</groupId>
     <artifactId>dcs-python-parent</artifactId>
-    <version>4.0.0-docker</version>
+    <version>3.0.1-docker</version>
   </parent>
   <description>FASTVEL algorithm has been developed by TRE-Altamira for generating differential interferograms or PSI-based mean displacement velocity maps from a set of Sentinel-1 or ASAR images</description>
   <version>1.5.2</version>
@@ -70,7 +70,6 @@
                     <require>python-pip</require>
                     <require>python-devel</require>
                     <require>procmail</require>
-                    <require>libatlas-base-dev</require>
                     <require>ncompress</require>
                   </requires>
                 </configuration>
