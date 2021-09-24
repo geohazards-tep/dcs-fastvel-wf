@@ -70,6 +70,7 @@
                     <require>python-pip</require>
                     <require>python-devel</require>
                     <require>procmail</require>
+                    <require>libatlas-base-dev</require>
                     <require>ncompress</require>
                   </requires>
                 </configuration>
